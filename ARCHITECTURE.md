@@ -4,7 +4,7 @@
 >
 > - **决策真源**：[`SPEC.md`](SPEC.md)。本文与 SPEC 冲突时，**一律以 SPEC 为准**，并须修正本文。
 > - 本文只负责 SPEC 不展开的部分：模块内部包结构、接口签名、装配与生命周期、线程与异常边界、M1 剪裁。
-> - 版本：v0.2.0-draft · 对齐 SPEC v0.1.0-draft · 最后更新：2026-10-27
+> - 版本：v0.2.1-draft · 对齐 SPEC v0.2.0-draft · 最后更新：2026-10-27
 > - 上一版（v0.1，旧名 `MiniJump`、单模块结构、hook 层 Kotlin）**已作废**，差异见 [§14](#14-与上一版minijump-v01的差异)。
 
 ---
@@ -513,11 +513,13 @@ M1 的目标是**把 §3.1 的三个未知量测出来**，不是跳转。所以
 | # | 项 | 影响 | 何时定 |
 |---|---|---|---|
 | 1 | `startAppByLink` 运行时是否真被调用、`miniAppId` 运行时值、`entryPath` 形态（SPEC §3.1） | 决定 P0 是否为唯一主攻点、提取正则怎么写 | **M1 探针** |
-| 2 | 日志物理路径三种写法并存：SPEC §1.1 `handoff.log` / SPEC §9.3 `/data/adb/lspd/modules/<user>/<module>/handoff.log` / docs/TESTING.md `…/0/handoff/handoff.log` | 取日志脚本容易写错 | 编码前统一为一处，其余文档改为引用 |
-| 3 | `service` 构件的具体绑定类（设置页侧读写 RemotePreferences / Remote Files） | M3 可行性 | M3 开工前 |
-| 4 | `<queries>` 名单：首批只列 `tv.danmaku.bili`，扩展应用时如何维护 | `package` 型 target 会静默失败 | M2 开工前 |
-| 5 | 去重表容量与淘汰（建议 64 条 LRU，5s 窗口） | 长时间挂着是否涨内存 | M2 |
-| 6 | UI 技术栈：View + Material3 还是 Compose | M3 工作量 | M3 开工前 |
+| 2 | `service` 构件的具体绑定类（设置页侧读写 RemotePreferences / Remote Files） | M3 可行性 | M3 开工前 |
+| 3 | `<queries>` 名单：首批只列 `tv.danmaku.bili`，扩展应用时如何维护 | `package` 型 target 会静默失败 | M2 开工前 |
+| 4 | 去重表容量与淘汰（建议 64 条 LRU，5s 窗口） | 长时间挂着是否涨内存 | M2 |
+| 5 | UI 技术栈：View + Material3 还是 Compose | M3 工作量 | M3 开工前 |
+
+> 已解决（2026-10-27）：日志物理路径三处不一致 → 统一为「代码只认逻辑名 `handoff.log`，物理路径由 LSPosed 决定」，
+> 见 SPEC §1.1 / §9.3 与 docs/TESTING.md §3（取日志改用通配定位）。
 
 ---
 
@@ -537,16 +539,18 @@ M1 的目标是**把 §3.1 的三个未知量测出来**，不是跳转。所以
 
 ---
 
-## 15. 本文对 SPEC 的补充项（待回写 SPEC）
+## 15. 本文补充项的回写状态
 
-以下是 SPEC 未写死、而实现必须定的点。**建议确认后回写进 SPEC.md**，否则两份文档又会分叉：
+以下 7 条原本是「SPEC 未写死、但实现必须定」的点，已于 2026-10-27 **全部回写 SPEC**（SPEC 升为 v0.2.0-draft）。保留本表作溯源：若 SPEC 里再次找不到某条，说明被误删。
 
-| # | 补充 | 建议落点 |
+| # | 补充 | 已写入 |
 |---|---|---|
 | 1 | `Config` 字段：`enabled` / `debug` / `rulesJson` / `version` | SPEC §9.1 |
-| 2 | `Pipeline` 实现位置：`PipelineImpl` 在 `:app`；护栏/匹配/提取/降级链在 `:module-rules` | SPEC §5 表 |
-| 3 | `MiniAppEvent` 增补 `name` / `arkApp` / `meta` / `rawExtras`（`meta:` 正则源必需） | SPEC §2.2 / §6.3 |
-| 4 | `when` → Kotlin `whenVar`；`TargetSpec` 与 `Target` 拆开 | SPEC §7.1 |
+| 2 | `Pipeline` 实现位置：`PipelineImpl` 在 `:app`；护栏/匹配/提取/降级链在 `:module-rules` | SPEC §5 表 + §5.1 装配约定 |
+| 3 | `MiniAppEvent` 补 `name` / `arkApp` / `meta` / `rawExtras`（`meta:` 正则源必需） | SPEC **§4.3**（新增字段表）+ §6.3 builder |
+| 4 | `when` → Kotlin `whenVar`；`TargetSpec` 与 `Target` 拆开 | SPEC §7.1 表示层约定 |
 | 5 | Context 获取策略：`ActivityThread.currentApplication()` + 缓存，失败即放行 | SPEC §8 |
-| 6 | `org.json` 按 `compileOnly` + `testImplementation` 引入 | SPEC §11 |
-| 7 | `<queries>` 包可见性要求（禁用 `QUERY_ALL_PACKAGES`） | SPEC §8 / §11 |
+| 6 | `org.json` 按 `compileOnly` + `testImplementation` 引入 | SPEC §11 表 |
+| 7 | `<queries>` 包可见性要求（禁用 `QUERY_ALL_PACKAGES`） | SPEC §8 |
+
+> 维护规则：改 SPEC 时若动到以上条目，必须同步回本文对应章节（§2 契约、§3 包结构、§5/§6 算法、§11 剪裁）。

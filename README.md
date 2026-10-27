@@ -20,9 +20,11 @@ Handoff 让这一步直接落到 B 站 App，体验和原生分享一致。
 
 | 应用 | 小程序 appId | 目标 App | 状态 |
 |---|---|---|---|
-| 哔哩哔哩 | `1109937557` | `tv.danmaku.bili` | 🚧 M2 开发中 |
+| 哔哩哔哩 | `1109937557` | `tv.danmaku.bili` | 📋 设计定稿 · M1 待开工 |
 
-新增应用只需加一条规则 JSON，**不需要改代码**，详见 [`docs/SPEC.md`](SPEC.md) §7.3。
+> 当前进度：**设计阶段完成，代码尚未落地**。首个可运行版本是 M1 探针版（只记录不阻断），见 [`SPEC.md`](SPEC.md) §12。
+
+新增应用只需加一条规则 JSON，**不需要改代码**，详见 [`SPEC.md`](SPEC.md) §7.3。
 
 ## 环境要求
 
@@ -61,6 +63,7 @@ Handoff 让这一步直接落到 B 站 App，体验和原生分享一致。
 | 文件 | 内容 |
 |---|---|
 | [`SPEC.md`](SPEC.md) | **工程规格说明 —— 唯一决策真源** |
+| [`ARCHITECTURE.md`](ARCHITECTURE.md) | 实现视图：契约签名、模块包结构、装配、线程模型 |
 | `docs/HOOKS.md` | Hook 点清单与候选表 |
 | `docs/RULES.md` | 规则 JSON schema |
 | `docs/TESTING.md` | 单测与真机验证流程 |

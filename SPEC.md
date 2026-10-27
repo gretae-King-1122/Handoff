@@ -1,7 +1,7 @@
 # Handoff · 工程规格说明（SPEC）
 
 > 本文件是**唯一的决策真源**。所有已确定的设计、命名、地址、已验证的事实都记录在此。
-> 状态：设计定稿，待编码 · 版本：v0.1.0-draft · 最后更新：2026-10-26
+> 状态：设计定稿，待编码 · 版本：v0.2.0-draft · 最后更新：2026-10-27
 
 ---
 
@@ -34,7 +34,7 @@
 | 模块描述 | 小程序外跳 —— 把聊天卡片里的小程序交给原生 App 打开 |
 | 配置 key 前缀 | `handoff_` |
 | RemotePreferences 名 | `handoff_config` |
-| 日志通道 | Remote Files：`handoff.log` |
+| 日志通道 | Remote Files：逻辑名 `handoff.log`（物理路径由 LSPosed 决定，见 §9.3） |
 
 ---
 
@@ -103,6 +103,34 @@ Hook 层不知道规则，规则层不知道 QQ 类。换 Hook 后端（Zygisk /
 
 ---
 
+### 4.3 `MiniAppEvent` 字段（唯一层间契约）
+
+| 字段 | 类型 | 来源 | 说明 |
+|---|---|---|---|
+| `source` | `CONTROLLER` / `LAUNCHER` / `CONTAINER` | 产生事件的 hook 点 | 日志里区分命中点 |
+| `processName` | String | `Process.myProcessName()` | 判断决策发生在主进程还是 `:mini` |
+| `miniAppId` | String? | `LaunchParam.miniAppId` | 规则匹配主键（B 站 `1109937557`） |
+| `name` | String? | `MiniAppInfo.name` | `nameRegex` 兜底匹配用 |
+| `entryPath` | String? | `LaunchParam.entryPath` | 提取 `bvid` / `aid` / `ep_id` |
+| `fakeUrl` | String? | `LaunchParam.fakeUrl` | 原始链接（若有） |
+| `link` / `linkType` | String? / Int? | `startAppByLink` 实参 | 仅 P0 有值 |
+| `scene` | Int? | `LaunchParam.scene` | Ark 卡片 = `1036` |
+| `via` | String? | `LaunchParam.via` | 来源标记，仅日志 |
+| `arkApp` | String? | Ark 卡片 extras | `arkApp` 匹配条件用，通常 `com.tencent.miniapp_01` |
+| `meta` | String? | Ark 卡片 meta JSON 原文 | `extract` 的 `meta:` 正则源 |
+| `rawExtras` | `Map<String,String>?` | `AppBrandUI.onCreate(Intent)` extras | 兜底，仅 P2 有值 |
+
+三条不变式：
+
+1. 可空字段一律 `null`，**不用空串**（空串会让正则误命中）。
+2. 不含任何 `com.tencent.*`，不含 `android.*`（否则 `:module-rules` 无法纯 JVM 测）。
+3. `:module-api` 内提供 **Java 风格的 `Builder`** —— hook 层是 Java，§6.3 的写法依赖它。
+
+> `arkApp` / `meta` / `rawExtras` 在 P0（主进程）通常为空，由 P2（`AppBrandUI.onCreate`）补齐；
+> 规则里的 `meta:` 正则源无值时，视为该源不参与匹配。
+
+---
+
 ## 5. 模块划分（7 个 Gradle 模块）
 
 | # | 模块 | 语言 | 依赖 | 职责 | 可单测 |
@@ -113,7 +141,7 @@ Hook 层不知道规则，规则层不知道 QQ 类。换 Hook 后端（Zygisk /
 | 4 | `:module-hook-lsposed` | **Java** | api | LSPosed 后端：hook 点、反射、LaunchParam 读取 | ❌ 需真机 |
 | 5 | `:module-storage` | Kotlin | api | 配置 + 命中日志的跨进程持久化 | ✅ fake 测 |
 | 6 | `:module-ui` | Kotlin | api | 设置页 / 规则编辑 / 日志查看 | ✅ fake 测 |
-| 7 | `:app` | Java | 全部 | 唯一出 APK：装配 + `META-INF/xposed` 资源 | — |
+| 7 | `:app` | Java | 全部 | 唯一出 APK：装配（Composition Root）+ `Pipeline` 实现 + `META-INF/xposed` 资源 | — |
 
 ### 5.1 依赖图
 
@@ -127,6 +155,7 @@ Hook 层不知道规则，规则层不知道 QQ 类。换 Hook 后端（Zygisk /
 
 - 五个功能模块**互不依赖**，全部只指向 `:module-api`，由 `:app` 装配。
 - 不单独开 `build-logic` 模块，约定插件用 `gradle/*.gradle.kts` script plugin 实现。
+- **装配约定**：`Pipeline`（§6.3 的 `pipeline.handle`）唯一实现在 `:app`。它只做「总开关 → 调用 `engine.decide` → 调用 `executor.run` → 成功才返回 true」的顺序拼接；护栏、匹配、提取、降级链算法一律在 `:module-rules` / `:module-executor`，`:app` 不得长出业务规则。
 
 ### 5.2 语言选择理由
 
@@ -173,11 +202,13 @@ hook(startAppByLink).setPriority(PRIORITY_HIGHEST).intercept(chain -> {
         MiniAppEvent ev = MiniAppEvent.builder()
             .source(Source.CONTROLLER).processName(Process.myProcessName())
             .miniAppId(Reflect.str(lp, "miniAppId"))
+            .name(Reflect.str(Reflect.obj(lp, "miniAppInfo"), "name"))  // 可为 null
             .entryPath(Reflect.str(lp, "entryPath"))
             .fakeUrl(Reflect.str(lp, "fakeUrl"))
             .scene(Reflect.integer(lp, "scene"))
             .via(Reflect.str(lp, "via"))
             .link(link).linkType(linkType).build();
+        // arkApp / meta / rawExtras 在 P0 通常为空，由 P2（AppBrandUI.onCreate）补齐，见 §4.3
 
         // ③ 交给 Pipeline（规则 + 执行），true = 已处理，请阻断
         if (pipeline.handle(ev)) return null;   // 不调用 proceed → 原方法体不执行
@@ -272,6 +303,9 @@ public final class ModuleMain extends XposedModule {
 }
 ```
 
+> **表示层约定（Kotlin）**：`targets` 每一项为 `TargetSpec(whenVar: String?, action: Target)` —— JSON 里的 `when` 在 Kotlin 侧叫 `whenVar`（`when` 是关键字）。
+> 四种 `action` 与 §8 的 `type` 一一对应：`Http(tpl)` / `Deeplink(pkg, tpl)` / `Package(pkg)` / `Passthrough`。
+
 ### 7.2 匹配 / 提取语义
 
 - 同一 rule 内条件 **AND**；数组内多值 **OR**；未填字段视为不限制。
@@ -306,6 +340,8 @@ public final class ModuleMain extends XposedModule {
 | `passthrough` | 不动作，返回失败 → 触发 `chain.proceed()` | — |
 
 - 执行上下文统一 `Application` + `FLAG_ACTIVITY_NEW_TASK`。
+- **Context 获取**：`MiniAppEvent` 不含 Android 类型，执行器需要 `Context` 时走 `ActivityThread.currentApplication()`（反射，成功后缓存）；取不到即视为本次执行失败 → 放行。
+- **包可见性**：Android 11+ 必须在 manifest `<queries>` 中显式列出 `tv.danmaku.bili` 等目标包，否则 `getLaunchIntentForPackage` 恒返回 null。**禁用 `QUERY_ALL_PACKAGES`**；新增规则引入新包时同步维护该名单。
 - `targets` 顺序执行，**首个成功即停**；最后一项固定 `passthrough`。
 
 ---
@@ -315,6 +351,14 @@ public final class ModuleMain extends XposedModule {
 ### 9.1 接口（定义在 `:module-api`）
 
 ```kotlin
+/** 配置。规则以 JSON 原文存放、由 :module-rules 解析 —— 以保持 :module-api 零依赖 */
+data class Config(
+    val enabled: Boolean = true,   // 总开关
+    val debug: Boolean = false,    // 调试日志（同时决定是否输出 logcat）
+    val rulesJson: String,         // 规则数组 JSON 原文
+    val version: Int = 1           // 结构版本，导入导出兼容用
+)
+
 interface ConfigRepository {
     fun load(): Config
     fun save(config: Config)
@@ -340,7 +384,7 @@ interface LogRepository {
 | 数据 | 通道 | 理由 |
 |---|---|---|
 | 配置 | **RemotePreferences**（`handoff_config`） | 体小、有变更监听、热更新 |
-| 命中日志 | **Remote Files**（`/data/adb/lspd/modules/<user>/<module>/handoff.log`） | 会频繁 `tail(200)`，塞 SharedPreferences 会撑爆 |
+| 命中日志 | **Remote Files**：逻辑名 `handoff.log`（当前 LSPosed 布局为 `/data/adb/lspd/modules/<user>/<module>/handoff.log`，**以框架为准，代码不硬编码**） | 会频繁 `tail(200)`，塞 SharedPreferences 会撑爆 |
 
 ### 9.4 跨进程数据流
 
@@ -379,6 +423,7 @@ QQ 进程（:mini 等）                     模块 App 进程（设置页）
 | minSdk | 26 | libxposed 要求 |
 | Java / Kotlin target | 21 | AGP 9 默认 |
 | libxposed | `io.github.libxposed:api:102.0.0`（compileOnly）+ `service` | Maven Central |
+| JSON 解析 | `org.json`：`compileOnly`（Android 平台自带）+ 单测 `testImplementation` | 避免 Android 侧打包出重复类 |
 | JDK | 17 或 21 | 当前 `JAVA_HOME` 指向 Minecraft 的 JRE，**必须改** |
 | 打包 | `packaging { resources { merges += "META-INF/xposed/*" } }` | 不加则模块不出现 |
 

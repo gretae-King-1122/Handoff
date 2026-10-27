@@ -39,8 +39,15 @@
 ```bash
 adb logcat -c
 # 点卡片
-adb shell "su -c 'tail -n 200 /data/adb/lspd/modules/0/handoff/handoff.log'"
+
+# 物理路径随 LSPosed 版本 / 用户不同，先定位再读
+adb shell su -c 'ls /data/adb/lspd/modules/*/*/handoff.log'
+adb shell su -c 'tail -n 200 /data/adb/lspd/modules/*/*/handoff.log'
 ```
+
+> 模块侧只认逻辑名 `handoff.log`（走 Remote Files API），**不硬编码物理路径**；
+> `modules/<user>/<module>/` 的层级由 LSPosed 决定，上面的通配写法对当前版本通用。
+> 多 LSPosed 用户时会列出多条，按时间取最新的一条。
 
 5. 核对三件事：
    - `miniAppId` 是否 `1109937557`
