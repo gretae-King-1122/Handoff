@@ -1,0 +1,26 @@
+# 统一行尾：仓库内一律 LF，避免 Windows/CI 拉出混合行尾
+* text=auto eol=lf
+
+# Windows 脚本保持 CRLF
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf
+
+# 二进制，不做行尾与 diff 转换
+*.apk   binary
+*.aab   binary
+*.jar   binary
+*.aar   binary
+*.keystore binary
+*.jks   binary
+*.png   binary
+*.jpg   binary
+*.webp  binary
+*.ttf   binary
+
+# 文档与配置在 diff 中按文本展示
+*.md    text
+*.json  text
+*.jsonc text
+*.kts   text
+*.toml  text

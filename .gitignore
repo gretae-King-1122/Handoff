@@ -1,0 +1,40 @@
+# ── Android / Gradle ────────────────────────────────────────────────
+*.iml
+.gradle/
+/local.properties
+/.idea/
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# ── 构建产物 ────────────────────────────────────────────────────────
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+output.json
+
+# ── 分析用素材（体积大，不入库）──────────────────────────────────────
+# QQ 安装包（393 MB）与反编译产物，只留在本地
+apk/
+*.apk
+decompiled/
+smali*/
+*.qqxlog
+*.xlog
+*.qapkg
+
+# ── 日志与临时文件 ──────────────────────────────────────────────────
+*.log
+*.hprof
+/tmp/
+scratch/
+
+# ── 编辑器 ──────────────────────────────────────────────────────────
+.vscode/
+*.swp
+*~
