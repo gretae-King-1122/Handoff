@@ -1,6 +1,6 @@
 # HOOKS · Hook 点清单
 
-> 所有类名与方法签名均来自 QQ 9.3.75 的**真机反编译与 logcat 实测**，非猜测。
+> P0/P1 来自既有真机记录；M2.1 新候选来自 QQ 9.3.75 APK 静态分析，**尚待真机验收**。
 > 修改本文件时请同步更新 `HookTargets` 候选表。
 
 ## 1. 进程分布（实测）
@@ -42,15 +42,39 @@
 阻断  不调 proceed()，return false
 ```
 
-### P2 · 兜底
+### P2 · 容器只读观测（M2.1）
 
 ```
-类    com.tencent.mobileqq.mini.appbrand.ui.AppBrandUI
-方法  onCreate
-签名  (android.os.Bundle) : void
-装哪  :mini / :mini1~5 / :miniapp / :wxa_container0~4
-阻断  先 proceed()，再 finish() + 拉起外部（父类 onCreate 不可跳过）
+类    com.tencent.mobileqq.mini.appbrand.ui.AppBrandUI / AppBrandUI1~3
+方法  doOnCreate(Bundle) / doOnNewIntent(Intent) / doOnResume()
+装哪  所有 QQ 进程尝试安装，实际运行由 QQ 的容器进程决定
+行为  原方法先执行一次，再取快照；不 finish，不接受 sink 的阻断结果
 ```
+
+定向读取 `KEY_APPINFO` Parcelable；先设置目标 Activity ClassLoader。
+SDK `appId` 可继承自 `MiniAppBaseInfo`。不枚举/打印登录等无关对象。
+`doOnNewIntent` 使用该次实参 Intent；resume 标记为 `resume-snapshot-not-click`，不能当作新卡片点击。
+
+### M2.1 · 解析后 / 页面事件（只读）
+
+| 类 | 方法与参数（均返回 void） |
+|---|---|
+| `com.tencent.mobileqq.mini.sdk.MiniAppController` | `startApp(Activity, MiniAppConfig, ResultReceiver)` |
+| `com.tencent.mobileqq.mini.sdk.MiniAppLauncher` | `launchAppByAppConfigWithoutCheck(Activity, MiniAppConfig, ResultReceiver)` |
+| `com.tencent.mobileqq.mini.launch.MiniSdkLauncher` | `startMiniApp(Activity, MiniAppConfig, Bundle, ResultReceiver)` |
+| `com.tencent.mobileqq.mini.launch.AppBrandLaunchManager` | `startMiniApp(Activity, MiniAppConfig, ResultReceiver)`（调用处签名候选） |
+| `com.tencent.qqmini.sdk.server.LaunchManagerService` | `startMiniApp(Activity, MiniAppInfo, Bundle, ResultReceiver)` |
+| `com.tencent.qqmini.sdk.ipc.AppBrandProxy` | `onAppShowOrHideWithPath(int, String, MiniAppInfo, String)` |
+
+这里 `MiniAppConfig` 指 `com.tencent.mobileqq.mini.apkg.MiniAppConfig`，`MiniAppInfo` 指
+`com.tencent.qqmini.sdk.launcher.model.MiniAppInfo`。按完整声明类型匹配，不靠参数个数猜重载。
+
+`MiniRuntimeProbe` 统一挂载，`ResolvedAppData` 只读字段转成中立事件。保留全部候选路径及
+`__pathOrigin`；展示优先级不是经过真机确认的 QQ 选页规则。Source 新增 `RESOLVED` / `PAGE`。
+所有新点 **只记录，绝不拦截**；现有浏览器外跳不变。旧全方法 `MiniSdkSweep` 不再安装。
+
+安装日志前缀 `[MINI-PROBE]`，输出匹配数量、完整方法签名、ClassLoader 身份；
+缺类输出 deferred，匹配数为 0 不能当作安装成功。新事件不经过旧 Sweep 的 URL/数字过滤。
 
 ## 3. LaunchParam 字段（反射读取）
 
@@ -78,6 +102,9 @@ onPackageReady(PackageReadyParam param)
 - 类查找用 `Class.forName(name, false, cl)`（只加载不初始化）
 - 方法查找按「名字 + 参数个数 + 参数可赋值性」，不用 `getDeclaredMethod(精确类型)`
 - 默认不 `deoptimize`，保留调试开关
+- M2.1 按实际 `Method` 去重安装，反射缓存包含 `Class` 身份而不仅是类名。
+- 监听 `MiniAppDexLoader.findClass(String)` / `create(String)` / `loadDex()` 的正常返回，
+  对实际 Class / `mNewClassLoader` 补装；不全局扫描 ClassLoader，也不 Hook 全部文件访问。
 
 ## 5. 抗版本技巧
 
@@ -90,5 +117,5 @@ onPackageReady(PackageReadyParam param)
 | 干扰 | 说明 | 处理 |
 |---|---|---|
 | `qfix.redirect.IPatchRedirector` | QQ 自有热修框架，每个方法头都有 | 不影响：我们 hook 的是原始 `Method` 对象 |
-| `MiniAppDexLoader` | 容器类由自定义 ClassLoader 加载 | P2 需用 `param.getClassLoader()`；失败再遍历已加载 loader |
-| 多实例容器 `AppBrandUI1~3` | QQ 并行开多个小程序 | P2 按类名前缀匹配 `AppBrandUI` |
+| `MiniAppDexLoader` | 容器类可能由动态 ClassLoader 加载 | 使用已知 loader 返回的实际 Class / 新 loader 补装 |
+| 多实例容器 `AppBrandUI1~3` | QQ 并行开多个小程序 | 精确类白名单；只 Hook 本类声明的业务生命周期，不 Hook 共享 Activity 基类 |

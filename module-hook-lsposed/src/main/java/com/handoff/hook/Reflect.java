@@ -12,8 +12,9 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class Reflect {
 
-    private static final Map<String, Field> FIELDS = new ConcurrentHashMap<>();
-    private static final Map<String, Method> METHODS = new ConcurrentHashMap<>();
+    // Class 身份包含 ClassLoader；QQ 动态 Dex 可同时存在同名但不兼容的类。
+    private static final Map<Class<?>, Map<String, Field>> FIELDS = new ConcurrentHashMap<>();
+    private static final Map<Class<?>, Map<String, Method>> METHODS = new ConcurrentHashMap<>();
 
     private Reflect() {
     }
@@ -21,14 +22,14 @@ public final class Reflect {
     /** 沿父类链查字段并 setAccessible；找不到返回 null。 */
     public static Field field(Class<?> cls, String name) {
         if (cls == null) return null;
-        String key = cls.getName() + '#' + name;
-        Field cached = FIELDS.get(key);
+        Map<String, Field> cache = FIELDS.computeIfAbsent(cls, ignored -> new ConcurrentHashMap<>());
+        Field cached = cache.get(name);
         if (cached != null) return cached;
         for (Class<?> c = cls; c != null && c != Object.class; c = c.getSuperclass()) {
             try {
                 Field f = c.getDeclaredField(name);
                 f.setAccessible(true);
-                FIELDS.put(key, f);
+                cache.put(name, f);
                 return f;
             } catch (NoSuchFieldException ignored) {
                 // 继续沿父类找
@@ -76,8 +77,9 @@ public final class Reflect {
      */
     public static Method method(Class<?> cls, String name, int paramCount) {
         if (cls == null) return null;
-        String key = cls.getName() + '#' + name + '/' + paramCount;
-        Method cached = METHODS.get(key);
+        String key = name + '/' + paramCount;
+        Map<String, Method> cache = METHODS.computeIfAbsent(cls, ignored -> new ConcurrentHashMap<>());
+        Method cached = cache.get(key);
         if (cached != null) return cached;
         for (Class<?> c = cls; c != null && c != Object.class; c = c.getSuperclass()) {
             for (Method m : c.getDeclaredMethods()) {
@@ -88,7 +90,7 @@ public final class Reflect {
                 } catch (Throwable ignored) {
                     // 不可访问也照样 hook，框架不需要 setAccessible
                 }
-                METHODS.put(key, m);
+                cache.put(key, m);
                 return m;
             }
         }

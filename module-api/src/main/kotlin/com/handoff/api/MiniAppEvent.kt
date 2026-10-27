@@ -8,8 +8,14 @@ enum class Source {
     /** P1 `MiniAppLauncher#openMiniApp` */
     LAUNCHER,
 
-    /** P2 `AppBrandUI#onCreate` */
+    /** P2 `AppBrandUI#doOnCreate` / `doOnNewIntent` / `doOnResume` 只读快照。 */
     CONTAINER,
+
+    /** 短链解析后的 MiniAppConfig / MiniAppInfo（只读探针）。 */
+    RESOLVED,
+
+    /** SDK 带路径显示/隐藏事件（只读探针，非点击证明）。 */
+    PAGE,
 }
 
 /**

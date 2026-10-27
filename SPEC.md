@@ -91,6 +91,19 @@
 | **B 站 App 分享卡片** | `www.bilibili.com/video/av…`（明文） | `QQBrowserDelegationActivity`（主进程）→ `QQBrowserActivity`（`:tool`） | ✅ **当前唯一可用路径** |
 | b23.tv 短链 | `b23.tv/<code>` | 同上 | ❌（需联网跳转，但可整包交给 B 站 App 自行解析） |
 
+### 3.3 M2.1 解析后探针（已编码，尚待真机验证）
+
+- 静态证据与局限见 `docs/MINI-CARD-INVESTIGATION.md`；不能把 P0 为空推断为后续主进程也没有 appId。
+- `MiniRuntimeProbe` 观察解析后的 `MiniAppConfig` / SDK `MiniAppInfo`、容器
+  `KEY_APPINFO`、`doOnNewIntent` 和 `onAppShowOrHideWithPath`。精确签名见 `docs/HOOKS.md` / `HookTargets`。
+- `MiniAppEvent.source` 新增 `RESOLVED`、`PAGE`；`CONTAINER` 也包括热复用/恢复快照。
+- 读取 `launchParam.entryPath`、`firstPage.pagePath` 等候选，保留来源和冲突标记；
+  不读取无关登录对象，不跨调用拼接身份与页面。
+- 本阶段新 Hook **始终放行**：sink 返回值不参与阻断，不执行外跳、finish 或 kill。
+  原 §6 的 P2 阻断流程仅是未来设计，不是当前实现。现有浏览器外跳不变。
+- 仅按明确 Class/Method 安装，支持已知动态 SDK loader 补装；反射缓存必须包含 ClassLoader 身份。
+- 未确认卡片来源、状态值、页面新旧以及冷/热启动覆盖前，不接入新的自动跳转或点击去重。
+
 ---
 
 ## 4. 架构

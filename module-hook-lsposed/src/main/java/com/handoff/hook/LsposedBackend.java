@@ -31,7 +31,7 @@ public final class LsposedBackend implements HookBackend {
     public void install(ClassLoader classLoader, String processName, EventSink sink) {
         step("P0 ControllerHook", () -> ControllerHook.install(xposed, classLoader, processName, sink, reporter));
         step("P1 LauncherHook", () -> LauncherHook.install(xposed, classLoader, processName, sink));
-        step("P2 ContainerHook", () -> ContainerHook.install(xposed, classLoader, processName, sink));
+        step("M2.1 MiniRuntimeProbe", () -> MiniRuntimeProbe.install(xposed, classLoader, processName, sink, reporter));
         // M1.2 / M1.4 探针：只在主进程挂，验证 Ark 卡片数据与启动链入参
         if (!processName.contains(":")) {
             step("M1.2 ArkClickProbe", () -> ArkClickProbe.install(xposed, classLoader, reporter));
@@ -39,7 +39,7 @@ public final class LsposedBackend implements HookBackend {
             step("M1.5 ArkMessageProbe", () -> ArkMessageProbe.install(xposed, classLoader, reporter));
             step("M1.7 TemplateProbe", () -> TemplateProbe.install(xposed, classLoader, reporter));
             step("M1.8 StructProbe", () -> StructProbe.install(xposed, classLoader, reporter));
-            step("M2.0 MiniSdkSweep", () -> MiniSdkSweep.install(xposed, classLoader, reporter));
+            // M2.1 已用精确签名 + 对象白名单取代全方法 Sweep，避免过滤漏报和大范围 Hook。
             // M2 正式拦截：B 站分享卡片在进 QQ 浏览器前跳到 B 站 App
             step("M2 BrowserHandoff", () -> BrowserHandoff.install(xposed, classLoader, reporter));
         }

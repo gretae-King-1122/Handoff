@@ -7,6 +7,12 @@
 
 ### Added
 
+- **M2.1 小程序解析后只读探针**：观察 `MiniAppConfig` / SDK `MiniAppInfo`，
+  P2 定向读取 `KEY_APPINFO`，覆盖 `doOnCreate` / `doOnNewIntent` / `doOnResume` 和 SDK 带路径事件。
+  新增 `RESOLVED` / `PAGE` 来源、候选路径/身份冲突/单调时钟/Activity 与 loader 标识；
+  通过已知 `MiniAppDexLoader` 补装动态类，按 Method 去重。新点只记录不阻断，替代旧全方法 Sweep。
+- 新增 7 项纯 JVM 字段提取与跨 ClassLoader 反射缓存测试；修正反射同名类缓存串用和日志时间格式器线程安全。
+
 - **M2 第一刀：B 站分享卡片拦截上线** —— hook `QQBrowserDelegationActivity#onCreate`，读 intent extra `url`，
   命中 `bilibili.com/video/(av\d+|BV…)` 则 `setPackage("tv.danmaku.bili")` 交给 B 站 App 并 `finish()` 掉跳板页。
   实测 `HANDOFF hit av117512318557006 via http+setPackage`，直接进 B 站对应视频，无闪屏。

@@ -34,10 +34,57 @@ public final class HookTargets {
             new Candidate("com.tencent.mobileqq.mini.sdk.MiniAppLauncher", "openMiniApp", 3)
     );
 
-    /** P2 兜底：AppBrandUI#onCreate(Bundle)；按类名前缀匹配，覆盖 AppBrandUI1~3 */
+    /** P2 只读观测：精确列出已验证的 AppBrandUI 系列，不 Hook 共享 Activity 基类。 */
     public static final String P2_CLASS = "com.tencent.mobileqq.mini.appbrand.ui.AppBrandUI";
-    public static final String P2_CLASS_PREFIX = "AppBrandUI";
-    public static final String P2_METHOD = "onCreate";
+
+    public static final String[] P2_CLASSES = {
+            P2_CLASS, P2_CLASS + "1", P2_CLASS + "2", P2_CLASS + "3"
+    };
+
+    /** M2.1 只读探针：仅安装 APK 已确认的目标类，不扫描整个进程的类。 */
+    public static final String[] RUNTIME_CLASSES = {
+            "com.tencent.mobileqq.mini.sdk.MiniAppController",
+            "com.tencent.mobileqq.mini.sdk.MiniAppLauncher",
+            "com.tencent.mobileqq.mini.launch.MiniSdkLauncher",
+            "com.tencent.mobileqq.mini.launch.AppBrandLaunchManager",
+            "com.tencent.qqmini.sdk.server.LaunchManagerService",
+            "com.tencent.qqmini.sdk.ipc.AppBrandProxy",
+            "com.tencent.qqmini.sdk.launcher.dynamic.MiniAppDexLoader",
+            P2_CLASS, P2_CLASS + "1", P2_CLASS + "2", P2_CLASS + "3"
+    };
+
+    static final class RuntimeTarget {
+        final String className;
+        final String methodName;
+        final String[] parameterTypes;
+
+        RuntimeTarget(String className, String methodName, String... parameterTypes) {
+            this.className = className;
+            this.methodName = methodName;
+            this.parameterTypes = parameterTypes;
+        }
+    }
+
+    private static final String ACTIVITY = "android.app.Activity";
+    private static final String CONFIG = "com.tencent.mobileqq.mini.apkg.MiniAppConfig";
+    private static final String SDK_INFO = "com.tencent.qqmini.sdk.launcher.model.MiniAppInfo";
+    private static final String RECEIVER = "android.os.ResultReceiver";
+    private static final String BUNDLE = "android.os.Bundle";
+
+    static final RuntimeTarget[] RUNTIME_METHODS = {
+            new RuntimeTarget("com.tencent.mobileqq.mini.sdk.MiniAppController", "startApp",
+                    ACTIVITY, CONFIG, RECEIVER),
+            new RuntimeTarget("com.tencent.mobileqq.mini.sdk.MiniAppLauncher", "launchAppByAppConfigWithoutCheck",
+                    ACTIVITY, CONFIG, RECEIVER),
+            new RuntimeTarget("com.tencent.mobileqq.mini.launch.MiniSdkLauncher", "startMiniApp",
+                    ACTIVITY, CONFIG, BUNDLE, RECEIVER),
+            new RuntimeTarget("com.tencent.mobileqq.mini.launch.AppBrandLaunchManager", "startMiniApp",
+                    ACTIVITY, CONFIG, RECEIVER),
+            new RuntimeTarget("com.tencent.qqmini.sdk.server.LaunchManagerService", "startMiniApp",
+                    ACTIVITY, SDK_INFO, BUNDLE, RECEIVER),
+            new RuntimeTarget("com.tencent.qqmini.sdk.ipc.AppBrandProxy", "onAppShowOrHideWithPath",
+                    "int", "java.lang.String", SDK_INFO, "java.lang.String")
+    };
 
     private HookTargets() {
     }

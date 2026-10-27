@@ -26,7 +26,9 @@ final class PipelineImpl {
     private final XposedInterface xposed;
     private final String processName;
     private final Config config = Config.M1_PROBE;
-    private final SimpleDateFormat clock = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US);
+    // 启动回调和页面通知可能来自不同线程，SimpleDateFormat 本身不线程安全。
+    private final ThreadLocal<SimpleDateFormat> clock = ThreadLocal.withInitial(
+            () -> new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US));
 
     PipelineImpl(XposedInterface xposed, String processName) {
         this.xposed = xposed;
@@ -65,7 +67,7 @@ final class PipelineImpl {
      */
     private String format(MiniAppEvent e) {
         StringBuilder sb = new StringBuilder(256);
-        sb.append(clock.format(new Date()))
+        sb.append(clock.get().format(new Date()))
                 .append(" | ").append(orDash(e.getProcessName()))
                 .append(" | ").append(e.getSource())
                 .append(" | ").append(orDash(e.getMiniAppId()))

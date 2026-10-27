@@ -49,35 +49,48 @@ public final class EventBuilder {
         return base(Source.LAUNCHER, processName, lp).build();
     }
 
-    /** P2：AppBrandUI#onCreate(Bundle) —— 只能靠 Intent extras */
+    /** P2：只读白名单字段；不能把登录等无关 extras 转成日志。 */
     public static MiniAppEvent fromContainer(Intent intent, String processName) {
+        return fromContainer(intent, processName, null);
+    }
+
+    public static MiniAppEvent fromContainer(Intent intent, String processName, ClassLoader loader) {
         MiniAppEvent.Builder b = MiniAppEvent.builder()
                 .source(Source.CONTAINER)
                 .processName(processName);
         if (intent == null) return b.build();
-
-        Bundle extras = intent.getExtras();
-        if (extras == null) return b.build();
-
         Map<String, String> raw = new HashMap<>();
-        for (String key : extras.keySet()) {
-            Object v = extras.get(key);
-            if (v == null) continue;
-            if (v instanceof String || v instanceof Number || v instanceof Boolean) {
-                raw.putIfAbsent(key, String.valueOf(v));
+        try {
+            if (loader != null) intent.setExtrasClassLoader(loader);
+            Bundle extras = intent.getExtras();
+            if (extras != null) {
+                for (String key : new String[]{"miniAppId", "appId", "mini_app_id", "miniAppid",
+                        "mini_appid", "entryPath", "mini_entryPath", "path", "pagePath", "url",
+                        "scene", "sceneId", "appName", "miniAppName", "name", "arkApp", "sourceApp"}) {
+                    Object value = extras.get(key);
+                    if (value instanceof String || value instanceof Number || value instanceof Boolean) {
+                        raw.put(key, String.valueOf(value));
+                    }
+                }
+                Object appInfo = extras.get("KEY_APPINFO");
+                if (appInfo != null) {
+                    raw.put("__payload", "KEY_APPINFO");
+                    return ResolvedAppData.read(appInfo, Source.CONTAINER, processName, null, raw);
+                }
             }
+        } catch (Throwable t) {
+            raw.put("__appInfoError", t.getClass().getSimpleName());
         }
         b.rawExtras(raw);
-        // M1.9：把承载页面本身也记下来 —— 确认这类「链接卡片」到底落在哪个 Activity
         try {
-            raw.put("__data", String.valueOf(intent.getDataString()));
-            raw.put("__action", String.valueOf(intent.getAction()));
+            if (intent.getDataString() != null) raw.put("__data", intent.getDataString());
+            if (intent.getAction() != null) raw.put("__action", intent.getAction());
             raw.put("__flags", Integer.toHexString(intent.getFlags()));
         } catch (Throwable ignored) {
             // 忽略
         }
-        b.miniAppId(first(raw, "miniAppId", "appId", "mini_app_id", "miniAppid"));
-        b.entryPath(first(raw, "entryPath", "path", "pagePath", "url"));
+        b.miniAppId(first(raw, "miniAppId", "appId", "mini_app_id", "miniAppid", "mini_appid"));
+        b.entryPath(first(raw, "entryPath", "mini_entryPath", "path", "pagePath", "url"));
         b.scene(intOrNull(first(raw, "scene", "sceneId")));
         b.name(first(raw, "appName", "miniAppName", "name"));
         b.arkApp(first(raw, "appid", "arkApp", "sourceApp"));
