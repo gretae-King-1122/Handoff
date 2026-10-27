@@ -429,15 +429,15 @@ QQ 进程（主进程 / :mini 等）                模块 App 进程（设置�
 
 | 项 | 值 | 备注 |
 |---|---|---|
-| AGP | 9.2.1 | 与 LSPosed 官方 example 一致 |
-| Gradle | 9.5.1（wrapper） | 本机已装 9.4.1 |
-| compileSdk | 37 | |
-| buildToolsVersion | 37.0.0 | **本机缺，需 `sdkmanager` 安装** |
+| AGP | 9.3.1 | 官方 example 用 9.2.1；本机缓存 9.3.1，实测可构建 |
+| Gradle | 9.5.1（wrapper） | 已随仓库提交 wrapper |
+| compileSdk | 37 | 本机 platforms 有 `android-37.0`；build-tools 用 36.1.0（本机无 37.0.0） |
+| buildToolsVersion | 36.1.0 | 本机 SDK 无 37.0.0；AGP 9.3.1 + compileSdk 37 实测可用 |
 | minSdk | 26 | libxposed 要求 |
 | Java / Kotlin target | 21 | AGP 9 默认 |
 | libxposed | `io.github.libxposed:api:102.0.0`（compileOnly）+ `service` | Maven Central |
 | JSON 解析 | `org.json`：`compileOnly`（Android 平台自带）+ 单测 `testImplementation` | 避免 Android 侧打包出重复类 |
-| JDK | 17 或 21 | 当前 `JAVA_HOME` 指向 Minecraft 的 JRE，**必须改** |
+| JDK | 21+（本机 25） | 当前 `JAVA_HOME` 指向 Minecraft 的 JRE，构建时须显式指定 |
 | 打包 | `packaging { resources { merges += "META-INF/xposed/*"; excludes += "**" } }` | 不加 `merges` 模块不出现；不加 `excludes += "**"` 会把 resources 全打进 APK |
 | R8 / 混淆 | `-adaptresourcefilecontents META-INF/xposed/java_init.list` + keep 入口类 | 否则入口类被裁 / `java_init.list` 类名与混淆后不一致，模块加载不到 |
 
