@@ -34,20 +34,20 @@
 1. `adb install -r app-debug.apk`
 2. LSPosed 启用 + 勾选 QQ + 强停 QQ
 3. 打开 QQ → 点一次 Ark 卡片
-4. 取日志：
+4. 取日志：**M1 的探针日志走 Xposed log，不走 logcat、也不写文件**
+
+- LSPosed 管理器 → 日志 → 选 `Handoff`，直接看（最快）
+- 或用 adb 拉取框架日志（文件名随 LSPosed 版本不同，先 `ls` 确认）：
 
 ```bash
 adb logcat -c
 # 点卡片
-
-# 物理路径随 LSPosed 版本 / 用户不同，先定位再读
-adb shell su -c 'ls /data/adb/lspd/modules/*/*/handoff.log'
-adb shell su -c 'tail -n 200 /data/adb/lspd/modules/*/*/handoff.log'
+adb shell su -c 'ls -l /data/adb/lspd/log/'
+adb shell su -c 'tail -n 300 /data/adb/lspd/log/modules.log'
 ```
 
-> 模块侧只认逻辑名 `handoff.log`（走 Remote Files API），**不硬编码物理路径**；
-> `modules/<user>/<module>/` 的层级由 LSPosed 决定，上面的通配写法对当前版本通用。
-> 多 LSPosed 用户时会列出多条，按时间取最新的一条。
+> 为什么不用文件：目标进程里 `XposedInterface.openRemoteFile()` 是**只读**的，
+> QQ 进程写不了 Remote Files；`log()` 是唯一能把数据带出目标进程的官方通道（见 SPEC §9.3）。
 
 5. 核对三件事：
    - `miniAppId` 是否 `1109937557`

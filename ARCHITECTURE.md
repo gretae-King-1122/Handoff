@@ -260,7 +260,7 @@ module-hook-lsposed/src/main/java/com/handoff/hook/
 ```
 module-storage/src/main/kotlin/com/handoff/storage/
 ├── RemoteConfigRepository.kt   getRemotePreferences("handoff_config") + 变更监听
-├── RemoteLogRepository.kt      Remote Files handoff.log，异步单写者
+├── RemoteLogRepository.kt      Remote Files handoff.log（App 侧写）；M1 不用
 ├── ConfigCodec.kt             Config ↔ JSON 字符串
 └── LogEntryCodec.kt           单行文本 ↔ LogEntry
 ```
@@ -387,27 +387,31 @@ decide(event, config):
 
 | 数据 | 通道 | 键 / 路径 | 说明 |
 |---|---|---|---|
-| 配置 | **RemotePreferences** | `handoff_config` | 体小、有变更监听、改完不重启 QQ |
-| 命中日志 | **Remote Files** | `handoff.log` | 频繁 `tail(200)`，塞 SharedPreferences 会撑爆 |
+| 配置 | **RemotePreferences** | `handoff_config` | 设置页写、hook 进程读（**目标进程侧只读**），有变更监听，改完不重启 QQ |
+| 命中日志 M1/M2 | **Xposed log** | `log(priority, "Handoff", line)` | 目标进程内 `openRemoteFile()` 只读，`log()` 是唯一能把数据带出 QQ 进程的官方通道 |
+| 命中日志 M3 起 | 广播回传 → 模块 App 落盘 `handoff.log`（Remote Files） | App 侧 `XposedService.openRemoteFile()` 可写 | 待 M3 决策（§13 #2） |
 
 ```
-QQ 进程（:mini 等）                     模块 App 进程（设置页）
+QQ 进程（主进程 / :mini 等）                模块 App 进程（设置页）
   Hook 命中 → Pipeline → 提取/决策/执行
      ↓
-  LogRepository.append()  ──Remote Files──▶  LogRepository.tail()
-     ↑                                          ↓
-  ConfigRepository.load() ◀──变更监听──────  ConfigRepository.save()
+  log(priority, "Handoff", line) ──▶ LSPosed 日志   ← M1/M2 唯一出口
+     ↑
+  ConfigRepository.load() ◀──RemotePreferences 变更监听──  ConfigRepository.save()
+                                        （App 侧经 XposedService 写入）
+
+  广播回传（M3 待定）───▶ 模块 App 落盘 handoff.log
 ```
 
 - **热更新链路**：设置页 `save()` → RemotePreferences 变更 → hook 进程监听器回调 → 重建 `RuleSet` 快照（原子替换引用）→ 下一次点击即生效。
-- **日志行格式**（单行文本，便于 `tail` 与人工肉眼核对）：
+- **日志行格式**（单行文本，M1 直接进 Xposed 日志，便于肉眼与 `grep`）：
 
   ```
-  2026-10-27 18:20:31.412 | com.tencent.mobileqq | CONTROLLER | 1109937557 | 哔哩哔哩 | 1036 | pages/video/video?bvid=BV1xx | bilibili | bvid=BV1xx | http | OK
+  Handoff | 2026-10-27 18:20:31.412 | com.tencent.mobileqq | CONTROLLER | 1109937557 | 哔哩哔哩 | 1036 | pages/video/video?bvid=BV1xx | bilibili | bvid=BV1xx | http | OK
   ```
   字段顺序：时间 / 进程 / source / miniAppId / name / scene / entryPath / ruleId / vars / targetType / 结果。
-- **日志静默**：`debug=false` 时**零 logcat 输出**（QQ 有 `liblogcathook.so`），日志只进 Remote Files。
-- 单写者 + 丢弃策略，见 §4.3；文件体积上限与裁剪由 UI 侧触发（M3 落地时定阈值）。
+- **日志静默**：`debug=false` 时不调用 `log()`（QQ 有 `liblogcathook.so`，虽然 Xposed log 不走 logcat，仍保持静默）。
+- **不做「进程内 append 文件」**：目标进程写不了 Remote Files，环形缓冲只在内存里（最近 64 条，供调试时 dump）。
 
 ---
 
@@ -481,7 +485,7 @@ Handoff/
 
 ---
 
-## 11. M1 剪裁（探针版只启用 4 个模块）
+## 11. M1 剪裁（探针版只启用 3 个模块）
 
 M1 的目标是**把 §3.1 的三个未知量测出来**，不是跳转。所以规则与执行**不参与**：
 
@@ -489,15 +493,15 @@ M1 的目标是**把 §3.1 的三个未知量测出来**，不是跳转。所以
 |---|---|---|
 | `:module-api` | ✅ 完整 | 契约必须先定，否则 hook 层无处落事件 |
 | `:module-hook-lsposed` | ✅ 完整 | 三个点全装，只读不阻断 |
-| `:module-storage` | ⚠️ 只做 `LogRepository` | 配置先用编译期常量 `enabled=false` |
-| `:app` | ✅ | `PipelineImpl` 恒返回 `false`，但**完整写日志** |
+| `:app` | ✅ | `PipelineImpl` 恒返回 `false`，但把事件全量 `log()` 出去 |
+| `:module-storage` | 🚧 空桩 | M1 不需要：配置用编译期常量，日志走 Xposed log |
 | `:module-rules` | 🚧 空桩 | 只有包结构，`RuleEngine` 未接 |
 | `:module-executor` | 🚧 空桩 | 不 `startActivity` |
-| `:module-ui` | 🚧 空桩 | 日志用 adb 取 |
+| `:module-ui` | 🚧 空桩 | 日志用 LSPosed 管理器看 |
 
 **为什么必须这样切**：`miniAppId` 是否真是 `1109937557`、`entryPath` 的实际形态、`startAppByLink` 是否真被调用——这三件事决定 M2 的提取正则能否写对。先跳转再验证，等于拿猜的正则去猜 URL。
 
-验收（docs/TESTING.md §3）：点一次卡片 → `handoff.log` 里看到真实 `miniAppId` / `entryPath` / `scene`。
+验收（docs/TESTING.md §3）：点一次卡片 → LSPosed 日志里看到真实 `miniAppId` / `entryPath` / `scene`。
 
 ---
 
@@ -519,7 +523,7 @@ M1 的目标是**把 §3.1 的三个未知量测出来**，不是跳转。所以
 | # | 项 | 影响 | 何时定 |
 |---|---|---|---|
 | 1 | `startAppByLink` 运行时是否真被调用、`miniAppId` 运行时值、`entryPath` 形态（SPEC §3.1） | 决定 P0 是否为唯一主攻点、提取正则怎么写 | **M1 探针** |
-| 2 | `service` 构件的具体绑定类（设置页侧读写 RemotePreferences / Remote Files） | M3 可行性 | M3 开工前 |
+| 2 | M3 命中日志回传方案：广播回传 App 落盘 vs 只保留 Xposed 日志 | 决定设置页能否列历史 | M3 开工前 |
 | 3 | 包可见性实际行为：QQ 自身是否声明了宽泛可见性（`dumpsys package com.tencent.mobileqq`） | 决定 `package` 型 target 有多可靠 | M1 真机顺手看一眼 |
 | 4 | 去重表容量与淘汰（建议 64 条 LRU，5s 窗口） | 长时间挂着是否涨内存 | M2 |
 | 5 | UI 技术栈：View + Material3 还是 Compose | M3 工作量 | M3 开工前 |
@@ -560,3 +564,25 @@ M1 的目标是**把 §3.1 的三个未知量测出来**，不是跳转。所以
 | 7 | 包可见性归属（按 QQ 的 manifest 算）与 `package` 型的判定口径 | SPEC §8 |
 
 > 维护规则：改 SPEC 时若动到以上条目，必须同步回本文对应章节（§2 契约、§3 包结构、§5/§6 算法、§11 剪裁）。
+
+---
+
+## 16. API 102 事实核对（源码级，2026-10-27）
+
+来源：`github.com/LibXposed/API`（javadoc 即源码）、`LibXposed/example`、`LibXposed/service`、`LSPosed.wiki`。
+
+| 事实 | 影响 |
+|---|---|
+| 入口必须 `extends io.github.libxposed.api.XposedModule`，**公开无参构造**；框架 `attachFramework()` 后才可用 API | 构造函数里什么都别做；R8 要 keep `<init>()` |
+| 生命周期：`onModuleLoaded(ModuleLoadedParam)` → `onPackageLoaded` → `onPackageReady(PackageReadyParam)` | `onPackageReady` 拿 `param.getClassLoader()`；`param.getProcessName()` 可用 |
+| `hook(Executable)` 返回 `HookBuilder`：`setPriority` / `setExceptionMode` / `setId` / `intercept(Hooker)`→`HookHandle` | 我们的 P0/P1/P2 直接用 |
+| `Chain`：`getArgs()` 是 `List<Object>`（不可变）、`getArg(i)`、`proceed()`、`proceed(Object[])`、`proceedWith(thisObj[, args])`、`getExecutable()` | 参数顺序不变，按 `instanceof` 认参仍成立 |
+| void 方法 `return null`（框架忽略返回值）；boolean 直接返回目标值 | P0/P1 阻断语义不变 |
+| `ExceptionMode.PROTECTIVE`（默认）：hooker 抛出时按"无此 hook"继续；可用 `module.prop` 的 `exceptionMode=protective` 设全局默认 | 与"任何异常必放行"对齐；仍保留显式 `try/catch` 以便记日志 |
+| 没有 `XposedHelpers`；反射自备 | `Reflect.java` 计划不变 |
+| `getInvoker(Method).setType(Invoker.Type.ORIGIN).invoke(thisObj, args)` 可绕过 hook 调原方法 | P2 `finish()` 场景可能需要 |
+| `XposedInterface.openRemoteFile()` / `listRemoteFiles()` 在目标进程**只读**；可写版本只在 App 侧 `XposedService` | **推翻**"QQ 进程写 handoff.log"的原设计，见 §7 |
+| `XposedService`（App 侧）：`getRemotePreferences(group)`（可写）、`openRemoteFile(name)`（可创建）、`getRunningTargets()`、`hotReloadModule()`、`requestScope()` | M3 设置页与热重载实现路径 |
+| `service` AAR 自带 `<provider android:name=".XposedProvider" android:authorities="${applicationId}.XposedService">` | manifest 自动合并，无需手写 |
+| 资源打包需 `packaging { resources { merges += "META-INF/xposed/*"; excludes += "**" } }` | 见 SPEC §11 |
+| `module.prop` 支持 `minApiVersion` / `targetApiVersion` / `staticScope` / `autoHotReload` / `exceptionMode` | 见 SPEC §11.1 |

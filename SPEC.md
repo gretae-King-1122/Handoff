@@ -386,20 +386,28 @@ interface LogRepository {
 
 ### 9.3 通道选型
 
-| 数据 | 通道 | 理由 |
-|---|---|---|
-| 配置 | **RemotePreferences**（`handoff_config`） | 体小、有变更监听、热更新 |
-| 命中日志 | **Remote Files**：逻辑名 `handoff.log`（当前 LSPosed 布局为 `/data/adb/lspd/modules/<user>/<module>/handoff.log`，**以框架为准，代码不硬编码**） | 会频繁 `tail(200)`，塞 SharedPreferences 会撑爆 |
+| 数据 | 通道 | 方向 | 理由 |
+|---|---|---|---|
+| 配置 | **RemotePreferences**（`handoff_config`） | 设置页写 → hook 进程读 | 体小、有变更监听、热更新。**目标进程侧只读**（官方 API 约束） |
+| 命中日志（M1 / M2） | **Xposed log**：`log(priority, "Handoff", …)` | hook 进程 → LSPosed 日志 | 目标进程内 `openRemoteFile()` **只读**，无法写；`log()` 是唯一把数据带出目标进程的官方通道 |
+| 命中日志（M3 起，待定） | 广播回传模块 App，由 App 落盘为 `handoff.log` | hook 进程 → 模块 App | 设置页要能列历史就需要可读文件，见 §13 待确认 |
+
+> **能力边界（按 libxposed API 102 源码核实）**：`XposedInterface.listRemoteFiles()` / `openRemoteFile()` 在**目标进程内只读**；
+> 可写的 `openRemoteFile()` 只在模块 App 侧的 `XposedService` 上（文件不存在会创建）。
+> 因此「QQ 进程 append 日志 → 设置页 tail」在 modern API 下不可实现，不要按这个方向写代码。
 
 ### 9.4 跨进程数据流
 
 ```
-QQ 进程（:mini 等）                     模块 App 进程（设置页）
+QQ 进程（主进程 / :mini 等）                模块 App 进程（设置页）
   Hook 命中 → Pipeline → 提取/决策/执行
      ↓
-  LogRepository.append()  ──Remote Files──▶  LogRepository.tail()
-     ↑                                          ↓
-  ConfigRepository.load() ◀──变更监听──────  ConfigRepository.save()
+  log(priority, "Handoff", line) ──▶ LSPosed 日志   ← M1/M2 唯一出口
+     ↑
+  ConfigRepository.load() ◀──RemotePreferences 变更监听──  ConfigRepository.save()
+                                        （App 侧经 XposedService 写入）
+
+  广播回传（M3 待定）───▶ ✉ ──▶ 模块 App 落盘 handoff.log
 ```
 
 ---
@@ -430,7 +438,8 @@ QQ 进程（:mini 等）                     模块 App 进程（设置页）
 | libxposed | `io.github.libxposed:api:102.0.0`（compileOnly）+ `service` | Maven Central |
 | JSON 解析 | `org.json`：`compileOnly`（Android 平台自带）+ 单测 `testImplementation` | 避免 Android 侧打包出重复类 |
 | JDK | 17 或 21 | 当前 `JAVA_HOME` 指向 Minecraft 的 JRE，**必须改** |
-| 打包 | `packaging { resources { merges += "META-INF/xposed/*" } }` | 不加则模块不出现 |
+| 打包 | `packaging { resources { merges += "META-INF/xposed/*"; excludes += "**" } }` | 不加 `merges` 模块不出现；不加 `excludes += "**"` 会把 resources 全打进 APK |
+| R8 / 混淆 | `-adaptresourcefilecontents META-INF/xposed/java_init.list` + keep 入口类 | 否则入口类被裁 / `java_init.list` 类名与混淆后不一致，模块加载不到 |
 
 ### 11.1 `META-INF/xposed/`
 
@@ -440,8 +449,24 @@ module.prop      →  minApiVersion=101
                     targetApiVersion=102
                     staticScope=false
                     autoHotReload=true
+                    exceptionMode=protective
 scope.list       →  com.tencent.mobileqq
 ```
+
+> `exceptionMode` 是全局默认异常策略：`protective` = hooker 抛异常时按"没有这个 hook"继续执行（等价于我们要的"任何异常 → 放行"）；
+> `passthrough` 仅用于调试。
+
+### 11.2 R8 / 混淆规则（`app/proguard-rules.pro`）
+
+```proguard
+-dontwarn io.github.libxposed.annotation.**
+-adaptresourcefilecontents META-INF/xposed/java_init.list
+-keep,allowoptimization,allowobfuscation public class * extends io.github.libxposed.api.XposedModule {
+    public <init>();
+}
+```
+
+入口类必须有**公开无参构造**；框架会 `attachFramework()` 注入实现，模块自己在 `onModuleLoaded()` 之前不得做任何初始化。
 
 ---
 
