@@ -7,6 +7,16 @@
 
 ### Added
 
+- `module-hook-lsposed` 真机探针（M1.1 ~ M1.8，全部只观测、不改行为）：
+  - `Dump`：反射打印对象全部实例字段
+  - `ArkClickProbe`：`MessageForArkApp` 的三个 `click*` 方法
+  - `MiniEntryProbe`：`MiniAppServiceImpl#launchMiniApp` / `MiniAppLauncher#startMiniApp` / `launchAppByFakeLink` 实参
+  - `ArkMessageProbe`：`doParse` / `doOnEvent` / `openThirdApp` / `getJumpUrl` + `ArkAppContainer#doOpenCardViewEvent`
+  - `TemplateProbe`：`TemplateMsgMiniAppLinkConfigParser`
+  - `StructProbe`：`MessageForStructing#doParse`
+- `ControllerHook` 增加调用栈打印（M1.3），用于定位 QQ 侧调用链
+
+
 - 工程骨架：7 个 Gradle 模块（`app` / `module-api` / `module-rules` / `module-executor` / `module-hook-lsposed` / `module-storage` / `module-ui`），Gradle 9.5.1 + AGP 9.3.1 + Kotlin 2.4.10 + JDK 25
 - `:module-api` 契约层（纯 JVM、零依赖）：`MiniAppEvent`（含 Java `Builder`）、`Decision`、`Target` / `TargetSpec` / `ExecResult`、`Config`、`LogEntry`、`Pipeline`、`HookBackend` / `EventSink`、`RuleEngine`、`TargetExecutor`、`ConfigRepository`、`LogRepository`
 - `:module-hook-lsposed`：P0 / P1 / P2 三个 hook 点、`HookTargets` 候选表、`Reflect` 反射缓存、`EventBuilder` 事件转换

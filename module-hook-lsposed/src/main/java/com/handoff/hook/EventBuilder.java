@@ -1,12 +1,13 @@
 package com.handoff.hook;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.Process;
-import android.content.Intent;
 
 import com.handoff.api.MiniAppEvent;
 import com.handoff.api.Source;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -92,6 +93,8 @@ public final class EventBuilder {
         if (info != null) {
             b.name(Reflect.str(info, "name"));
         }
+        // M1.1 字段普查：确认 LaunchParam 里哪些字段真被填过
+        b.rawExtras(Collections.singletonMap("__launchParam", Dump.describe(lp, 2)));
         return b;
     }
 

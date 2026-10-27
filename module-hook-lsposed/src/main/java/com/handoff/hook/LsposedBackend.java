@@ -29,9 +29,17 @@ public final class LsposedBackend implements HookBackend {
 
     @Override
     public void install(ClassLoader classLoader, String processName, EventSink sink) {
-        step("P0 ControllerHook", () -> ControllerHook.install(xposed, classLoader, processName, sink));
+        step("P0 ControllerHook", () -> ControllerHook.install(xposed, classLoader, processName, sink, reporter));
         step("P1 LauncherHook", () -> LauncherHook.install(xposed, classLoader, processName, sink));
         step("P2 ContainerHook", () -> ContainerHook.install(xposed, classLoader, processName, sink));
+        // M1.2 / M1.4 探针：只在主进程挂，验证 Ark 卡片数据与启动链入参
+        if (!processName.contains(":")) {
+            step("M1.2 ArkClickProbe", () -> ArkClickProbe.install(xposed, classLoader, reporter));
+            step("M1.4 MiniEntryProbe", () -> MiniEntryProbe.install(xposed, classLoader, reporter));
+            step("M1.5 ArkMessageProbe", () -> ArkMessageProbe.install(xposed, classLoader, reporter));
+            step("M1.7 TemplateProbe", () -> TemplateProbe.install(xposed, classLoader, reporter));
+            step("M1.8 StructProbe", () -> StructProbe.install(xposed, classLoader, reporter));
+        }
     }
 
     private interface Step {

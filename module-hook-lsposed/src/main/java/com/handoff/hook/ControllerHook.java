@@ -17,8 +17,8 @@ final class ControllerHook {
     private ControllerHook() {
     }
 
-    static void install(XposedInterface xposed, ClassLoader cl, String processName, EventSink sink)
-            throws ClassNotFoundException {
+    static void install(XposedInterface xposed, ClassLoader cl, String processName, EventSink sink,
+                        LsposedBackend.Reporter reporter) throws ClassNotFoundException {
         Method method = null;
         for (HookTargets.Candidate c : HookTargets.P0) {
             try {
@@ -37,11 +37,16 @@ final class ControllerHook {
         }
 
         final Method target = method;
+        final boolean probeStack = !processName.contains(":");
         xposed.hook(target)
                 .setPriority(XposedInterface.PRIORITY_HIGHEST)
                 .intercept(chain -> {
                     try {
                         MiniAppEvent event = EventBuilder.fromController(chain, processName);
+                        if (probeStack) {
+                            // M1.3 探针：打出 QQ 侧的调用栈，找出 Ark 卡片点击的真实入口
+                            reporter.info("STACK " + stack());
+                        }
                         if (sink.onEvent(event)) {
                             // void 方法：不调 proceed() 即等于不执行原方法体；返回值被框架忽略，返回 null
                             return null;
@@ -51,5 +56,20 @@ final class ControllerHook {
                     }
                     return chain.proceed();
                 });
+    }
+
+    /** 只保留 QQ 侧的栈帧，最多 12 层，够看清调用链。 */
+    private static String stack() {
+        StringBuilder sb = new StringBuilder(512);
+        int n = 0;
+        for (StackTraceElement e : new Throwable().getStackTrace()) {
+            String cls = e.getClassName();
+            if (cls.startsWith("com.handoff.")) continue;
+            if (!cls.startsWith("com.tencent.")) continue;
+            if (n++ > 0) sb.append(" < ");
+            sb.append(cls).append('#').append(e.getMethodName());
+            if (n >= 12) break;
+        }
+        return sb.toString();
     }
 }
