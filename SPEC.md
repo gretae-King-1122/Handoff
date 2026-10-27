@@ -336,12 +336,17 @@ public final class ModuleMain extends XposedModule {
 |---|---|---|
 | `http` | `ACTION_VIEW` + https URL，**不指定 package**（交给系统 App Links） | `ActivityNotFound` |
 | `deeplink` | `ACTION_VIEW` + 自定义 scheme + `setPackage(pkg)` | 包未安装 / 无 Activity |
-| `package` | `getLaunchIntentForPackage(pkg)` | 返回 null |
+| `package` | `ACTION_MAIN` + `CATEGORY_LAUNCHER` + `setPackage(pkg)`，直接 `startActivity`（**不用** `getLaunchIntentForPackage` 判定） | `ActivityNotFound` / 包未安装 |
 | `passthrough` | 不动作，返回失败 → 触发 `chain.proceed()` | — |
 
+- **发起方是 QQ 进程**：模块代码注入 QQ 进程内执行，`startActivity` 用的是 **QQ 的 Application Context 与 QQ 的 uid**。系统与目标 App 看到的调用方都是 `com.tencent.mobileqq`；Handoff 自己的 App 进程不参与跳转（只做设置页）。这也是唯一可行的路径——Android 10+ 限制后台启动 Activity，点击瞬间前台是 QQ，模块进程在后台会被系统拒掉。
 - 执行上下文统一 `Application` + `FLAG_ACTIVITY_NEW_TASK`。
 - **Context 获取**：`MiniAppEvent` 不含 Android 类型，执行器需要 `Context` 时走 `ActivityThread.currentApplication()`（反射，成功后缓存）；取不到即视为本次执行失败 → 放行。
-- **包可见性**：Android 11+ 必须在 manifest `<queries>` 中显式列出 `tv.danmaku.bili` 等目标包，否则 `getLaunchIntentForPackage` 恒返回 null。**禁用 `QUERY_ALL_PACKAGES`**；新增规则引入新包时同步维护该名单。
+- **包可见性（Android 11+）按调用方算，即按 QQ 的 manifest 算**，模块无法修改。因此：
+  - `http` / `deeplink` 不受影响——启动 Intent 本身不经可见性过滤；
+  - `package` 型**不得用 `getLaunchIntentForPackage` 判定可用性**：它属查询类 API，目标不可见即返回 `null`，会被误判成"未安装"而静默降级。改为显式 `setPackage` + `startActivity`，失败靠 `ActivityNotFoundException` 兜底（见表）；
+  - Handoff 自己 manifest 的 `<queries>` 仅供设置页展示"目标 App 是否已安装"，**与跳转无关**；不使用 `QUERY_ALL_PACKAGES`。
+  - 待 M1/M2 真机确认 QQ 自身是否已声明宽泛可见性（若已声明，上述风险自然消失，但代码仍按"不依赖它"来写）。
 - `targets` 顺序执行，**首个成功即停**；最后一项固定 `passthrough`。
 
 ---

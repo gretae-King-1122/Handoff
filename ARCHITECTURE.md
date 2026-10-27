@@ -129,7 +129,7 @@ data class TargetSpec(
 sealed interface Target {
     data class Http(val tpl: String) : Target                // ACTION_VIEW + https，不设 package
     data class Deeplink(val pkg: String, val tpl: String) : Target  // ACTION_VIEW + scheme + setPackage
-    data class Package(val pkg: String) : Target             // getLaunchIntentForPackage
+    data class Package(val pkg: String) : Target             // 显式 MAIN/LAUNCHER + setPackage
     data object Passthrough : Target                         // 永不成功，用于触发放行
 }
 
@@ -242,7 +242,7 @@ module-executor/src/main/kotlin/com/handoff/executor/
 ├── AndroidTargetExecutor.kt  降级链：顺序执行，首个成功即停
 ├── HttpTarget.kt             ACTION_VIEW + https，**不设 package**，交给系统 App Links
 ├── DeeplinkTarget.kt         ACTION_VIEW + 自定义 scheme + setPackage
-├── PackageTarget.kt          getLaunchIntentForPackage
+├── PackageTarget.kt          显式 MAIN/LAUNCHER + setPackage（不用查询类 API）
 └── ContextProvider.kt        Application 获取与缓存（见 §4.2）
 ```
 
@@ -369,11 +369,16 @@ decide(event, config):
 |---|---|---|---|
 | `http` | `ACTION_VIEW` + `Uri.parse(tpl 填充后)`，**不 `setPackage`** | `startActivity` 未抛异常 | `ActivityNotFoundException` |
 | `deeplink` | `ACTION_VIEW` + scheme + `setPackage(pkg)` | 同上 | 包未安装 / 无 Activity |
-| `package` | `getLaunchIntentForPackage(pkg)` | intent 非 null 且 `startActivity` 成功 | 返回 null |
+| `package` | `ACTION_MAIN` + `CATEGORY_LAUNCHER` + `setPackage(pkg)`，直接 `startActivity` | 未抛异常 | `ActivityNotFoundException` |
 | `passthrough` | 不动作 | 恒 false | — |
 
 - `targets` 顺序执行，**首个成功即停**；最后一项固定 `passthrough`（除非用户显式配置「绝不降级」）。
-- **包可见性**：Android 11+ 需要 `app` 的 manifest `<queries>` 显式列出 `tv.danmaku.bili` 等目标包，否则 `getLaunchIntentForPackage` 恒返回 null。**不使用** `QUERY_ALL_PACKAGES`（隐私与上架风险）。新增规则引入新包时，`<queries>` 也要同步加——这条写进 PR checklist。
+- **发起方是 QQ 进程**：hook 回调里调用的 `startActivity` 用的是 QQ 的 Application Context 与 QQ 的 uid —— `system_server` 与目标 App 看到的调用方都是 `com.tencent.mobileqq`。Handoff 自己的 App 进程不参与跳转。
+- **包可见性（Android 11+）按调用方算**，也就是按 **QQ 的 manifest** 算，模块改不了：
+  - `http` / `deeplink` 不受影响（启动 Intent 不经可见性过滤）；
+  - `package` 型**不要**用 `getLaunchIntentForPackage` / `resolveActivity` 判定可用性——查询类 API 会被过滤，目标不可见即返回 null，导致误判"未安装"并静默降级；改为显式 `setPackage` + `startActivity`，用 `ActivityNotFoundException` 兜底；
+  - Handoff manifest 里的 `<queries>` 只服务设置页的"是否已安装"展示，**不影响跳转**；不使用 `QUERY_ALL_PACKAGES`。
+  - 待 M1/M2 真机确认 QQ 自身是否已声明宽泛可见性（`dumpsys package com.tencent.mobileqq` 可查），即便有，代码也不依赖它。
 - `http` 优先于 `deeplink` 是刻意的：B 站 App Links 已 verified（SPEC §3），走 https 不需要猜 `bilibili://` 的路径格式。
 
 ---
@@ -503,7 +508,8 @@ M1 的目标是**把 §3.1 的三个未知量测出来**，不是跳转。所以
 - [ ] 每条 hook 函数体都在 `try/catch(Throwable)` 内，且异常分支必然走到 `chain.proceed()`。
 - [ ] `Pipeline.handle` 里没有文件 IO / 网络 / `Thread.sleep`。
 - [ ] `debug=false` 时无任何 logcat 调用。
-- [ ] 新增规则若引入新包名，`<queries>` 同步更新。
+- [ ] 目标 App 的可用性判定不得依赖查询类 API（`getLaunchIntentForPackage` / `resolveActivity`）——它们按调用方（QQ）的可见性过滤。
+- [ ] 新增目标 App 时，设置页用 `<queries>` 名单同步更新（只影响「是否已安装」展示）。
 - [ ] 新增 hook 点必须同时登记候选表与 `docs/HOOKS.md`。
 
 ---
@@ -514,7 +520,7 @@ M1 的目标是**把 §3.1 的三个未知量测出来**，不是跳转。所以
 |---|---|---|---|
 | 1 | `startAppByLink` 运行时是否真被调用、`miniAppId` 运行时值、`entryPath` 形态（SPEC §3.1） | 决定 P0 是否为唯一主攻点、提取正则怎么写 | **M1 探针** |
 | 2 | `service` 构件的具体绑定类（设置页侧读写 RemotePreferences / Remote Files） | M3 可行性 | M3 开工前 |
-| 3 | `<queries>` 名单：首批只列 `tv.danmaku.bili`，扩展应用时如何维护 | `package` 型 target 会静默失败 | M2 开工前 |
+| 3 | 包可见性实际行为：QQ 自身是否声明了宽泛可见性（`dumpsys package com.tencent.mobileqq`） | 决定 `package` 型 target 有多可靠 | M1 真机顺手看一眼 |
 | 4 | 去重表容量与淘汰（建议 64 条 LRU，5s 窗口） | 长时间挂着是否涨内存 | M2 |
 | 5 | UI 技术栈：View + Material3 还是 Compose | M3 工作量 | M3 开工前 |
 
@@ -551,6 +557,6 @@ M1 的目标是**把 §3.1 的三个未知量测出来**，不是跳转。所以
 | 4 | `when` → Kotlin `whenVar`；`TargetSpec` 与 `Target` 拆开 | SPEC §7.1 表示层约定 |
 | 5 | Context 获取策略：`ActivityThread.currentApplication()` + 缓存，失败即放行 | SPEC §8 |
 | 6 | `org.json` 按 `compileOnly` + `testImplementation` 引入 | SPEC §11 表 |
-| 7 | `<queries>` 包可见性要求（禁用 `QUERY_ALL_PACKAGES`） | SPEC §8 |
+| 7 | 包可见性归属（按 QQ 的 manifest 算）与 `package` 型的判定口径 | SPEC §8 |
 
 > 维护规则：改 SPEC 时若动到以上条目，必须同步回本文对应章节（§2 契约、§3 包结构、§5/§6 算法、§11 剪裁）。

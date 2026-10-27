@@ -63,7 +63,7 @@
 |---|---|---|---|
 | `http` | `tpl` | `ACTION_VIEW` + https，不指定 package（交给系统 App Links） | `ActivityNotFound` |
 | `deeplink` | `tpl` + `pkg` | `ACTION_VIEW` + 自定义 scheme + `setPackage` | 包未装 / 无 Activity |
-| `package` | `pkg` | `getLaunchIntentForPackage` | 返回 null |
+| `package` | `pkg` | 显式 `ACTION_MAIN` + `CATEGORY_LAUNCHER` + `setPackage` 直接 `startActivity`；**不用** `getLaunchIntentForPackage` 判定（查询类 API 会被包可见性过滤） | `ActivityNotFound` / 包未安装 |
 | `passthrough` | — | 不动作 | 永远返回失败 |
 
 - `when`：变量存在时才尝试，缺省表示总是尝试
