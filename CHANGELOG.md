@@ -5,3 +5,16 @@
 
 ## [Unreleased]
 
+### Added
+
+- 工程骨架：7 个 Gradle 模块（`app` / `module-api` / `module-rules` / `module-executor` / `module-hook-lsposed` / `module-storage` / `module-ui`），Gradle 9.5.1 + AGP 9.3.1 + Kotlin 2.4.10 + JDK 25
+- `:module-api` 契约层（纯 JVM、零依赖）：`MiniAppEvent`（含 Java `Builder`）、`Decision`、`Target` / `TargetSpec` / `ExecResult`、`Config`、`LogEntry`、`Pipeline`、`HookBackend` / `EventSink`、`RuleEngine`、`TargetExecutor`、`ConfigRepository`、`LogRepository`
+- `:module-hook-lsposed`：P0 / P1 / P2 三个 hook 点、`HookTargets` 候选表、`Reflect` 反射缓存、`EventBuilder` 事件转换
+- `:app`：`ModuleMain` 入口、`PipelineImpl`（M1 只记录不阻断）、`META-INF/xposed/{java_init.list,module.prop,scope.list}`、R8 规则
+- 可出包：`./gradlew :app:assembleDebug` → `app/build/outputs/apk/debug/app-debug.apk`
+
+### Notes
+
+- M1 探针版：**不跳转、不写文件、不联网**，命中事件只走 Xposed log（`log(INFO, "Handoff", …)`）
+- 目标进程内 `openRemoteFile()` 只读，原「QQ 进程写 handoff.log」方案作废，见 SPEC §9.3
+- 待真机验收：`miniAppId` / `entryPath` / `scene` 的实际值（SPEC §3.1）

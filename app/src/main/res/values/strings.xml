@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Handoff</string>
+    <string name="module_description">小程序外跳 —— 把聊天卡片里的小程序交给原生 App 打开</string>
+</resources>
