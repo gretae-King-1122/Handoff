@@ -39,6 +39,9 @@ public final class LsposedBackend implements HookBackend {
             step("M1.5 ArkMessageProbe", () -> ArkMessageProbe.install(xposed, classLoader, reporter));
             step("M1.7 TemplateProbe", () -> TemplateProbe.install(xposed, classLoader, reporter));
             step("M1.8 StructProbe", () -> StructProbe.install(xposed, classLoader, reporter));
+            step("M2.0 MiniSdkSweep", () -> MiniSdkSweep.install(xposed, classLoader, reporter));
+            // M2 正式拦截：B 站分享卡片在进 QQ 浏览器前跳到 B 站 App
+            step("M2 BrowserHandoff", () -> BrowserHandoff.install(xposed, classLoader, reporter));
         }
     }
 

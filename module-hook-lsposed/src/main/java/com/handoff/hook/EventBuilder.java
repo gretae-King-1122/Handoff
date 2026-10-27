@@ -68,6 +68,14 @@ public final class EventBuilder {
             }
         }
         b.rawExtras(raw);
+        // M1.9：把承载页面本身也记下来 —— 确认这类「链接卡片」到底落在哪个 Activity
+        try {
+            raw.put("__data", String.valueOf(intent.getDataString()));
+            raw.put("__action", String.valueOf(intent.getAction()));
+            raw.put("__flags", Integer.toHexString(intent.getFlags()));
+        } catch (Throwable ignored) {
+            // 忽略
+        }
         b.miniAppId(first(raw, "miniAppId", "appId", "mini_app_id", "miniAppid"));
         b.entryPath(first(raw, "entryPath", "path", "pagePath", "url"));
         b.scene(intOrNull(first(raw, "scene", "sceneId")));

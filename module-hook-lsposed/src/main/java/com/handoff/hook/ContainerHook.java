@@ -37,6 +37,13 @@ final class ContainerHook {
                         if (self instanceof Activity) {
                             Activity activity = (Activity) self;
                             MiniAppEvent event = EventBuilder.fromContainer(activity.getIntent(), processName);
+                            // 补充：Activity 类名，用来确认这类卡片落在哪个页面
+                            java.util.Map<String, String> extras = new java.util.HashMap<>(event.getRawExtras());
+                            extras.put("__activity", activity.getClass().getName());
+                            event = event.copy(
+                                    event.getSource(), event.getProcessName(), event.getMiniAppId(), event.getName(),
+                                    event.getEntryPath(), event.getFakeUrl(), event.getLink(), event.getLinkType(),
+                                    event.getScene(), event.getVia(), event.getArkApp(), event.getMeta(), extras);
                             if (sink.onEvent(event)) {
                                 activity.finish();
                             }

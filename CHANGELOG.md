@@ -7,6 +7,11 @@
 
 ### Added
 
+- **M2 第一刀：B 站分享卡片拦截上线** —— hook `QQBrowserDelegationActivity#onCreate`，读 intent extra `url`，
+  命中 `bilibili.com/video/(av\d+|BV…)` 则 `setPackage("tv.danmaku.bili")` 交给 B 站 App 并 `finish()` 掉跳板页。
+  实测 `HANDOFF hit av117512318557006 via http+setPackage`，直接进 B 站对应视频，无闪屏。
+- 拉起降级链：`https + setPackage` → `bilibili://video/<aid>` → 包启动 → 放行（失败绝不阻塞用户）
+
 - `module-hook-lsposed` 真机探针（M1.1 ~ M1.8，全部只观测、不改行为）：
   - `Dump`：反射打印对象全部实例字段
   - `ArkClickProbe`：`MessageForArkApp` 的三个 `click*` 方法

@@ -49,9 +49,12 @@
 
 ### 2.2 非目标
 
-- 不拦截 QQ 内置浏览器（`QQBrowserActivity` 那套）——独立需求。
 - 不改网络、不伪造设备指纹、不碰风控。
 - **本期不做内核模块 / Zygisk 后端**（架构预留接口，见 §9）。
+
+> 变更（2026-10-27 真机验证后）：原「不拦截 QQ 内置浏览器」已**撤销**。
+> B 站 App 分享到 QQ 的卡片不走小程序，而是 `QQBrowserDelegationActivity → QQBrowserActivity`，
+> 且 URL 明文可读 —— 这成了当前**唯一可用**的落地路径（见 §3.2）。
 
 ---
 
@@ -69,15 +72,24 @@
 | 交叉验证 | `MD5("1109937557") = 2421a9fa948857a957d7d5793dae165a` = 包目录名 | `files/mini/2421A9FA…` |
 | 小程序名称 | 哔哩哔哩（`mossPkgName: bilibili`） | 包内 `app-config.json` |
 | 视频页路径 | `pages/video/video?bvid=BVxxx` ｜ `?aid=xxx` ｜ `pages/pgcvideo/pgcvideo?ep_id=xxx` | 包内分享逻辑 |
-| B 站 App | `tv.danmaku.bili`，App Links 已验证 `bilibili.com` / `m.bilibili.com` / `b23.tv` | `dumpsys package` |
+| B 站 App | `tv.danmaku.bili`：**声明**了 `http` / `https` + BROWSABLE 过滤器，但**本机未通过域名验证** —— 裸 `ACTION_VIEW https://www.bilibili.com/...` 会落到 `ResolverActivity` / 默认浏览器；必须 `setPackage("tv.danmaku.bili")` 才能真正进 App | `dumpsys package` + `cmd package resolve-activity` |
 
 **关键推论**：B 站 App 的 App Links 是系统级 verified 的 → `ACTION_VIEW` 一个 `https://www.bilibili.com/video/BVxxx` 就会被系统直接交给 B 站 App，**不需要猜 `bilibili://` 的路径格式**。
 
-### 3.1 待 M1 探针确认
+### 3.1 M1 探针结论（2026-10-27 真机，QQ 9.3.75 / LSPosed 2.2.1）
 
-1. `MiniAppController#startAppByLink` 运行时是否真被调用。
-2. `LaunchParam.miniAppId` 运行时值是否为 `1109937557`。
-3. `LaunchParam.entryPath` 的实际形态。
+1. `MiniAppController#startAppByLink` **确实被调用**，`scene` 稳定为 `1036`。
+2. 但 `LaunchParam` 的 35 个字段里，`miniAppId` / `entryPath` **恒为 null**；有值的只有 `fakeUrl`（= `link`）与 `scene`。
+3. 小程序卡片的链接形如 `https://m.q.qq.com/a/s/<32hex>?scene=1007`：服务端生成的哈希，既非 MD5(URL)，HTTP 抓取也只返回扫码引导页 —— **本地不可还原**。
+4. 一次点击会触发 **2~3 次 P0**；容器 `:mini` 比 P0 晚约 5 秒启动。
+
+### 3.2 三类卡片的实测落点
+
+| 卡片类型 | 链接形态 | 落点 | 视频 ID 可得？ |
+|---|---|---|---|
+| 小程序分享卡片 | `m.q.qq.com/a/s/<hash>?scene=1007` | `MiniAppController#startAppByLink` → `AppBrandUI` | ❌ |
+| **B 站 App 分享卡片** | `www.bilibili.com/video/av…`（明文） | `QQBrowserDelegationActivity`（主进程）→ `QQBrowserActivity`（`:tool`） | ✅ **当前唯一可用路径** |
+| b23.tv 短链 | `b23.tv/<code>` | 同上 | ❌（需联网跳转，但可整包交给 B 站 App 自行解析） |
 
 ---
 
@@ -341,6 +353,11 @@ public final class ModuleMain extends XposedModule {
 
 - **发起方是 QQ 进程**：模块代码注入 QQ 进程内执行，`startActivity` 用的是 **QQ 的 Application Context 与 QQ 的 uid**。系统与目标 App 看到的调用方都是 `com.tencent.mobileqq`；Handoff 自己的 App 进程不参与跳转（只做设置页）。这也是唯一可行的路径——Android 10+ 限制后台启动 Activity，点击瞬间前台是 QQ，模块进程在后台会被系统拒掉。
 - 执行上下文统一 `Application` + `FLAG_ACTIVITY_NEW_TASK`。
+- **B 站拉起必须 `setPackage`**：本机 `tv.danmaku.bili` 的 https 过滤器未通过域名验证，裸 `ACTION_VIEW` 会落到 `ResolverActivity` / 默认浏览器。实测降级链：
+  1. `ACTION_VIEW` + 原 https URL + `setPackage("tv.danmaku.bili")` —— **实测即命中**；
+  2. `bilibili://video/<aid>` + `setPackage`；
+  3. `getLaunchIntentForPackage("tv.danmaku.bili")` → 至少进 App 首页；
+  4. 全失败 → 不 `finish()`，放行 QQ 浏览器。
 - **Context 获取**：`MiniAppEvent` 不含 Android 类型，执行器需要 `Context` 时走 `ActivityThread.currentApplication()`（反射，成功后缓存）；取不到即视为本次执行失败 → 放行。
 - **包可见性（Android 11+）按调用方算，即按 QQ 的 manifest 算**，模块无法修改。因此：
   - `http` / `deeplink` 不受影响——启动 Intent 本身不经可见性过滤；
