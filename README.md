@@ -1,12 +1,12 @@
 # Handoff
 
-> 将 QQ 中支持的 B 站视频卡片和链接，交给 B 站 App 打开。
+> QQ 负责聊天，B 站负责看视频，内置浏览器就别加班了。
 
-一个 **LSPosed** 模块。在 QQ 中点击支持的 B 站分享卡片或明文视频链接时，
-交给 **哔哩哔哩 App**，避免同时启动 QQ 内置浏览器。保留原有外跳确认，外跳失败则放行浏览器。
+**Handoff** 是个 LSPosed「视频传送门」：点击 QQ 里支持的 B 站卡片或视频链接，
+直接交给 B 站 App，不让内置浏览器抢戏。该确认还得确认，跳不过去就走原路。
 
-**开发测试阶段，非稳定版。** 浏览器并行打开修复已完成一轮真机验证；最新轻量优化版已通过
-24 项单元测试及 Debug / Release 构建，但仍待真机回归，尚无实测提速结论。
+**当前发布：v0.1.0。** 浏览器并行打开修复已完成一轮真机验证；轻量优化版已通过
+24 项单元测试及 Debug / Release 构建，但仍待完整真机回归，尚无实测提速结论。
 
 [下载／版本](https://github.com/lihuimin1145-coder/Handoff/releases) ·
 [问题反馈](https://github.com/lihuimin1145-coder/Handoff/issues) ·
@@ -41,11 +41,11 @@
 
 ## 获取 APK
 
-当前尚未发布 APK Release。可自行[构建](#构建)，后续发布的安装包会放在
-[GitHub Releases](https://github.com/lihuimin1145-coder/Handoff/releases)，不会将 APK 放入源码目录。
+在 [GitHub Releases](https://github.com/lihuimin1145-coder/Handoff/releases/latest) 下载
+`Handoff-v0.1.0.apk`；`SHA256SUMS.txt` 用于校验文件。也可以自行[构建](#构建)。
 
-> 当前 Release 构建仍使用本机 debug 签名，尚未建立正式版本的签名与升级方案。
-> 不同机器自行构建的包可能因签名不同而无法覆盖安装；签名密钥不要提交到仓库。
+> 官方 APK 使用独立发布签名。旧 debug 包无法直接覆盖安装，需先在 LSPosed 停用并卸载旧 Handoff，
+> 再安装正式包、重新启用并勾选 QQ（不要卸载 QQ）。自行构建的签名也可能不同；密钥不要提交到仓库。
 
 ## 安装
 
@@ -101,7 +101,7 @@ QQ 内部派发路径随版本变化，不保证其他版本或其他卡片类�
 
 ## 构建
 
-需要 Git、JDK 21+ 和 Android SDK Platform 37；本机已用 JDK 26 验证。
+需要 Git、JDK 21+ 和 Android SDK Platform 37；本机已用 JDK 26 验证。框架需提供 libxposed API 102。
 使用仓库自带 Gradle Wrapper，首次构建需联网下载依赖。
 通过 Android Studio 配置 SDK，或在本地 `local.properties` 中设置 `sdk.dir`，不要提交个人路径。
 
@@ -123,6 +123,11 @@ macOS／Linux 将 `.\gradlew.bat` 换为 `./gradlew`；若无执行权限，先�
 
 - Debug：`app/build/outputs/apk/debug/app-debug.apk`
 - Release：`app/build/outputs/apk/release/app-release.apk`
+
+官方 Release 需要本地签名配置：默认读取 `~/.handoff/release-signing/signing.properties`，
+或通过环境变量 `HANDOFF_SIGNING_PROPERTIES` 指定；包含 `storeFile`、`storePassword`、
+`keyAlias`、`keyPassword`（PKCS12）。没有配置时只生成 `app-release-unsigned.apk`，不能直接安装；
+自行体验可构建 Debug。Release 始终关闭诊断探针。
 
 正常包应记录 `diagnostics=false`。诊断包仅适合排查问题，切回日常包时去掉构建参数并重新构建、安装。
 如果安装后仍出现旧日志，可追加 `--no-build-cache --rerun-tasks` 强制构建；不要仅凭安装成功判断实现已更新。

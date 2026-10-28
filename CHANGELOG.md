@@ -5,6 +5,16 @@
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-28
+
+### Release
+
+- 首个正式 GitHub Release，提供 APK 与 SHA-256 校验文件；发布身份使用仓库外的独立 PKCS12 签名。
+- versionCode 升至 2，最低 libxposed API 修正为 102；Release 强制关闭诊断与调试标记。
+- 不再默认使用 debug 签名发布；未配置签名时生成 unsigned APK。旧 debug 安装需先卸载模块再装正式包。
+- 增加 Android 12+ 云备份与设备迁移的排除规则，保留旧系统的备份禁用设置；Release lint 已完成。
+- 正式发布不代表所有场景已验收：取消确认、失败放行、负对照和最新轻量链路仍待完整真机回归。
+
 ### Changed
 
 - 补齐公开仓库 README：说明实际支持范围、尚未发布 APK、安装及停用步骤、签名限制、构建测试方法和脱敏反馈要求；

@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
 }
@@ -8,6 +10,17 @@ val handoffDiagnostics = providers.gradleProperty("handoffDiagnostics").orElse("
     it.toBoolean()
 }
 
+// Keep the publishing key and passwords outside the repository. Missing config produces an unsigned
+// release for source builders; never silently sign a release with the public Android debug identity.
+val releaseSigningFile = providers.environmentVariable("HANDOFF_SIGNING_PROPERTIES").orNull
+    ?.let { file(it) }
+    ?: file("${System.getProperty("user.home")}/.handoff/release-signing/signing.properties")
+val releaseSigning = Properties().apply {
+    if (releaseSigningFile.isFile) releaseSigningFile.inputStream().use { load(it) }
+}
+fun signingValue(name: String): String = releaseSigning.getProperty(name)
+    ?.takeIf { it.isNotBlank() } ?: error("Release signing property is missing: $name")
+
 android {
     namespace = "com.handoff"
     compileSdk = 37
@@ -16,7 +29,7 @@ android {
         applicationId = "com.handoff.module"
         minSdk = 26
         targetSdk = 37
-        versionCode = 1
+        versionCode = 2
         versionName = "0.1.0"
         buildConfigField("boolean", "HANDOFF_DIAGNOSTICS", handoffDiagnostics.get().toString())
     }
@@ -25,12 +38,28 @@ android {
         buildConfig = true
     }
 
+    signingConfigs {
+        if (releaseSigningFile.isFile) {
+            create("handoffRelease") {
+                storeFile = file(signingValue("storeFile"))
+                storePassword = signingValue("storePassword")
+                keyAlias = signingValue("keyAlias")
+                keyPassword = signingValue("keyPassword")
+                storeType = "PKCS12"
+            }
+        }
+    }
+
     buildTypes {
         release {
+            isDebuggable = false
+            buildConfigField("boolean", "HANDOFF_DIAGNOSTICS", "false")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName("debug")
+            if (releaseSigningFile.isFile) {
+                signingConfig = signingConfigs.getByName("handoffRelease")
+            }
         }
     }
 
@@ -48,7 +77,6 @@ android {
 
     lint {
         abortOnError = true
-        checkReleaseBuilds = false
     }
 }
 
