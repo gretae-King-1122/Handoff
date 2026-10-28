@@ -61,7 +61,7 @@ final class PipelineImpl {
     }
 
     /**
-     * 单行格式，字段顺序与 docs/TESTING.md / ARCHITECTURE §7 一致：
+     * 诊断事件的单行格式：
      * 时间 | 进程 | source | miniAppId | name | scene | entryPath | fakeUrl | via | link | linkType | arkApp | meta | extras
      */
     private String format(MiniAppEvent e) {

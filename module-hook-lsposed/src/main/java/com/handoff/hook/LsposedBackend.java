@@ -10,7 +10,7 @@ import io.github.libxposed.api.XposedInterface;
 /**
  * libxposed 后端：正常模式仅安装已验证的浏览器交接，诊断模式再加只读发现探针。
  *
- * <p>只做「反射 + 框架调用 + 事件转换」，不含任何规则或执行逻辑（ADR-0003）。
+ * <p>QQ 类型保留在 Hook 边界，诊断事件以中立数据传给下游；浏览器交接仍是独立实现。
  */
 public final class LsposedBackend implements HookBackend {
 

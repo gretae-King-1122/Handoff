@@ -12,7 +12,7 @@ fun interface EventSink {
 /**
  * Hook 后端：把「一次小程序启动」变成 [MiniAppEvent]，交给 [sink]。
  *
- * 换后端（Zygisk / 内核）只需重新实现本接口，`Pipeline` 及以下零改动（ADR-0003）。
+ * 换后端（Zygisk / 内核）只需重新实现本接口，`Pipeline` 及以下不接触 QQ 内部类型。
  */
 fun interface HookBackend {
     /**

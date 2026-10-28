@@ -11,6 +11,22 @@ build/
 .cxx
 local.properties
 
+# 本地凭据与签名材料：禁止随源码提交
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.key
+*.pem
+key.properties
+keystore.properties
+signing.properties
+secrets.properties
+.env
+.env.*
+credentials.json
+service-account*.json
+
 # ── 构建产物 ────────────────────────────────────────────────────────
 *.apk
 *.aab

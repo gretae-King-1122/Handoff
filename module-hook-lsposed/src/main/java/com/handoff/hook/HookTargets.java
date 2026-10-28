@@ -6,8 +6,7 @@ import java.util.List;
 /**
  * 候选表：每个 hook 点登记多组候选（类名 + 方法名 + 参数个数），按序探测，命中即用。
  *
- * <p>QQ 小版本升级通常只动实现不动类名；真改了，往这里加一条候选即可 —— 细节真源是
- * {@code docs/HOOKS.md}。
+ * <p>QQ 改版后应核对实际签名并更新候选，再做设备回归；不能仅凭类名不变判断兼容。
  */
 public final class HookTargets {
 
