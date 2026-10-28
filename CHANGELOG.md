@@ -7,6 +7,8 @@
 
 ### Changed
 
+- 补齐公开仓库 README：说明实际支持范围、尚未发布 APK、安装及停用步骤、签名限制、构建测试方法和脱敏反馈要求；
+  修正 Android 最低编译版本为 8.0（API 26），明确不代表框架兼容或全场景真机验证。
 - **默认轻量交接模式**：debug/release 均不再默认挂载历史诊断探针，
   `-PhandoffDiagnostics=true` 可恢复完整发现链；交接 Hook 优先安装，loader 身份防重复安装。
   保留失败放行与外跳确认，不缓存失效 Intent 或 QQ Activity，不改变视频跳转降级链。
