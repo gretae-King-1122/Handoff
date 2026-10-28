@@ -3,6 +3,7 @@ package com.handoff.hook;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -13,23 +14,27 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class Reflect {
 
     // Class 身份包含 ClassLoader；QQ 动态 Dex 可同时存在同名但不兼容的类。
-    private static final Map<Class<?>, Map<String, Field>> FIELDS = new ConcurrentHashMap<>();
-    private static final Map<Class<?>, Map<String, Method>> METHODS = new ConcurrentHashMap<>();
+    // Cache misses too: optional fields absent in a QQ version must not throw on every event.
+    private static final Map<Class<?>, Map<String, Optional<Field>>> FIELDS = new ConcurrentHashMap<>();
+    private static final Map<Class<?>, Map<String, Optional<Method>>> METHODS = new ConcurrentHashMap<>();
 
     private Reflect() {
     }
 
     /** 沿父类链查字段并 setAccessible；找不到返回 null。 */
     public static Field field(Class<?> cls, String name) {
-        if (cls == null) return null;
-        Map<String, Field> cache = FIELDS.computeIfAbsent(cls, ignored -> new ConcurrentHashMap<>());
-        Field cached = cache.get(name);
-        if (cached != null) return cached;
+        if (cls == null || name == null) return null;
+        Map<String, Optional<Field>> cache = FIELDS.computeIfAbsent(cls, ignored -> new ConcurrentHashMap<>());
+        Optional<Field> cached = cache.get(name);
+        if (cached != null) return cached.orElse(null);
+        return cache.computeIfAbsent(name, ignored -> Optional.ofNullable(findField(cls, name))).orElse(null);
+    }
+
+    private static Field findField(Class<?> cls, String name) {
         for (Class<?> c = cls; c != null && c != Object.class; c = c.getSuperclass()) {
             try {
                 Field f = c.getDeclaredField(name);
                 f.setAccessible(true);
-                cache.put(name, f);
                 return f;
             } catch (NoSuchFieldException ignored) {
                 // 继续沿父类找
@@ -76,11 +81,15 @@ public final class Reflect {
      * @param paramCount 期望参数个数；&lt; 0 表示不限
      */
     public static Method method(Class<?> cls, String name, int paramCount) {
-        if (cls == null) return null;
+        if (cls == null || name == null) return null;
         String key = name + '/' + paramCount;
-        Map<String, Method> cache = METHODS.computeIfAbsent(cls, ignored -> new ConcurrentHashMap<>());
-        Method cached = cache.get(key);
-        if (cached != null) return cached;
+        Map<String, Optional<Method>> cache = METHODS.computeIfAbsent(cls, ignored -> new ConcurrentHashMap<>());
+        Optional<Method> cached = cache.get(key);
+        if (cached != null) return cached.orElse(null);
+        return cache.computeIfAbsent(key, ignored -> Optional.ofNullable(findMethod(cls, name, paramCount))).orElse(null);
+    }
+
+    private static Method findMethod(Class<?> cls, String name, int paramCount) {
         for (Class<?> c = cls; c != null && c != Object.class; c = c.getSuperclass()) {
             for (Method m : c.getDeclaredMethods()) {
                 if (!m.getName().equals(name)) continue;
@@ -90,7 +99,6 @@ public final class Reflect {
                 } catch (Throwable ignored) {
                     // 不可访问也照样 hook，框架不需要 setAccessible
                 }
-                cache.put(key, m);
                 return m;
             }
         }

@@ -76,6 +76,32 @@ SDK `appId` 可继承自 `MiniAppBaseInfo`。不枚举/打印登录等无关对�
 安装日志前缀 `[MINI-PROBE]`，输出匹配数量、完整方法签名、ClassLoader 身份；
 缺类输出 deferred，匹配数为 0 不能当作安装成功。新事件不经过旧 Sweep 的 URL/数字过滤。
 
+### M2 · 浏览器交接（并行打开修复）
+
+```
+类    com.tencent.mobileqq.app.QBaseActivity（QQ 自有类）
+方法  startActivity(Intent) / startActivity(Intent, Bundle) : void
+装哪  QQ 主进程
+范围  receiver 必须恰好是 QQBrowserDelegationActivity
+目标  显式 component 属于 com.tencent.mobileqq，且为 QQBrowserActivity /
+      QQH5BrowserActivity / QQTranslucentBrowserActivity
+```
+
+QQ 9.3.75 APK 中，跳板页 `doOnCreate` 在 `startActivity(intent2)` 后自行 `finish()`。
+旧版先执行继承来的 `onCreate` 再 finish，浏览器此时已经发出，因而可能与外跳同时打开。
+现在在派发前尝试外跳；`startActivity` 未抛错表示请求已接受，此时不调用原浏览器启动方法。
+不修改系统确认弹窗、不绕过确认，也不把“请求接受”当作用户已经确认。
+
+仅匹配 http/https 的 `bilibili.com` / `www.bilibili.com` / `m.bilibili.com`，
+标准端口、无 userinfo、完整 `/video/av数字` 或 `/video/BV十位字符` 路径。
+非命中/提取异常/外跳全失败才原样调用 `proceed()` 一次；原方法异常原样抛出，不重试。
+线程级重入保护覆盖重载互调和外跳自身的 startActivity；不是跨点击的时间窗口去重。
+不 Hook/跳过 Activity 生命周期，不主动 finish；由 QQ 原代码结束跳板页。
+安装日志 `HANDOFF dispatch installed`；阻断日志 `HANDOFF blocked QQ browser id=… via …`，不输出完整 URL 查询参数。
+
+2026-10-28 11:13 真机已确认一轮成功外跳：阻断日志单次命中，进入 B 站视频详情，
+同次系统日志无内置浏览器启动，返回 QQ 聊天 Activity。取消/失败与负对照仍待回归，详见 TESTING §6。
+
 ## 3. LaunchParam 字段（反射读取）
 
 | 字段 | 类型 | 用途 |
@@ -91,16 +117,19 @@ SDK `appId` 可继承自 `MiniAppBaseInfo`。不枚举/打印登录等无关对�
 
 ## 4. 安装策略
 
+2026-10-28 起按运行计划区分：默认仅 QQ 主进程的 BrowserHandoff，其他只读点不安装；
+`-PhandoffDiagnostics=true` 恢复下述跨进程诊断覆盖。浏览器优先，每个 loader 身份只安装一次。
+
 ```java
 onPackageReady(PackageReadyParam param)
-  if (!param.getPackageName().startsWith("com.tencent.mobileqq")) return;
+  if (!param.getPackageName().equals("com.tencent.mobileqq")) return;
   backend.install(param.getClassLoader(), Process.myProcessName());
 ```
 
 - 每个 hook 点**独立 try**，互不影响
-- **不做进程名过滤**（否则漏 `:mini`）
+- 诊断模式不漏 `:mini` 等 QQ 子进程；正常模式辅助进程不挂载探针（见 PERFORMANCE.md）
 - 类查找用 `Class.forName(name, false, cl)`（只加载不初始化）
-- 方法查找按「名字 + 参数个数 + 参数可赋值性」，不用 `getDeclaredMethod(精确类型)`
+- 旧 P0/P1 按「名字 + 参数个数 + 参数可赋值性」查找；新探针与浏览器派发按 APK 已确认的精确签名匹配
 - 默认不 `deoptimize`，保留调试开关
 - M2.1 按实际 `Method` 去重安装，反射缓存包含 `Class` 身份而不仅是类名。
 - 监听 `MiniAppDexLoader.findClass(String)` / `create(String)` / `loadDex()` 的正常返回，

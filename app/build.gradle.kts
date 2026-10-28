@@ -2,6 +2,12 @@ plugins {
     alias(libs.plugins.android.application)
 }
 
+// Diagnostics is opt-in even for debug APKs: old discovery hooks are not needed for normal handoff.
+val handoffDiagnostics = providers.gradleProperty("handoffDiagnostics").orElse("false").map {
+    require(it == "true" || it == "false") { "handoffDiagnostics must be true or false" }
+    it.toBoolean()
+}
+
 android {
     namespace = "com.handoff"
     compileSdk = 37
@@ -12,6 +18,11 @@ android {
         targetSdk = 37
         versionCode = 1
         versionName = "0.1.0"
+        buildConfigField("boolean", "HANDOFF_DIAGNOSTICS", handoffDiagnostics.get().toString())
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     buildTypes {

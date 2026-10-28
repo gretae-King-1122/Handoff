@@ -4,6 +4,9 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Field;
+import java.util.Map;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -49,5 +52,31 @@ class ReflectTest {
         Class<?> second = independentCopy();
         assertSame(first, Reflect.method(first, "launch", 1).getDeclaringClass());
         assertSame(second, Reflect.method(second, "launch", 1).getDeclaringClass());
+    }
+
+    @Test void absentMembersAreCachedInsteadOfRescanningOnEverySnapshot() throws Exception {
+        for (int i = 0; i < 100; i++) {
+            assertNull(Reflect.field(Fixture.class, "notPresent"));
+            assertNull(Reflect.method(Fixture.class, "notPresent", 1));
+        }
+        // White-box performance invariant: a cached miss, not merely the same null result.
+        for (String cacheName : new String[]{"FIELDS", "METHODS"}) {
+            Field cacheField = Reflect.class.getDeclaredField(cacheName);
+            cacheField.setAccessible(true);
+            Map<?, ?> classes = (Map<?, ?>) cacheField.get(null);
+            Map<?, ?> members = (Map<?, ?>) classes.get(Fixture.class);
+            String key = cacheName.equals("FIELDS") ? "notPresent" : "notPresent/1";
+            assertEquals(Optional.empty(), members.get(key));
+        }
+    }
+
+    @Test void cachedMissDoesNotHideMemberOnAnotherClassOrAnInheritedMember() {
+        class Base { String entryPath = "video"; public void onPage(String value) { } }
+        class Child extends Base { }
+        assertNull(Reflect.field(Fixture.class, "entryPath"));
+        assertEquals("video", Reflect.str(new Child(), "entryPath"));
+        assertEquals(Base.class, Reflect.method(Child.class, "onPage", 1).getDeclaringClass());
+        assertNull(Reflect.method(Child.class, "onPage", 2));
+        assertNotNull(Reflect.method(Child.class, "onPage", 1));
     }
 }

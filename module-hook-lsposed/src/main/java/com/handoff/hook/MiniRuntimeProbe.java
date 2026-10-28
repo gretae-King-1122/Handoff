@@ -171,10 +171,12 @@ final class MiniRuntimeProbe {
 
     private static void hookResolved(XposedInterface xposed, Method method, String process,
                                      EventSink sink, LsposedBackend.Reporter reporter) {
+        // Immutable method metadata: resolve once at install, not for each launch/page event.
+        Class<?>[] parameters = method.getParameterTypes();
+        boolean page = method.getName().equals("onAppShowOrHideWithPath");
         observe(xposed, method, true, chain -> {
             Object model = null;
             Activity activity = null;
-            Class<?>[] parameters = method.getParameterTypes();
             for (int i = 0; i < parameters.length; i++) {
                 Object arg = chain.getArgs().get(i);
                 if (arg instanceof Activity) activity = (Activity) arg;
@@ -183,7 +185,6 @@ final class MiniRuntimeProbe {
                         || parameters[i].getName().equals("com.tencent.qqmini.sdk.launcher.model.MiniAppInfo")) model = arg;
             }
             if (model == null) return;
-            boolean page = method.getName().equals("onAppShowOrHideWithPath");
             Map<String, String> raw = diagnostics(method, page ? "page-notification" : "before-launch");
             if (activity != null) addActivity(raw, activity);
             String path = null;

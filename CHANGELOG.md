@@ -5,6 +5,24 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **默认轻量交接模式**：debug/release 均不再默认挂载历史诊断探针，
+  `-PhandoffDiagnostics=true` 可恢复完整发现链；交接 Hook 优先安装，loader 身份防重复安装。
+  保留失败放行与外跳确认，不缓存失效 Intent 或 QQ Activity，不改变视频跳转降级链。
+- 反射查找缓存缺失结果，诊断回调的参数类型元数据移至安装阶段；
+  新增安装和命中分段耗时，正常路径只记短摘要。新增 8 项运行计划/防重装/缓存测试，合计 24 项通过。
+  优化版尚未真机测量，不声明端到端提速比例。细节见 `docs/PERFORMANCE.md`。
+
+### Fixed
+
+- **B 站外跳与 QQ 浏览器并行打开**：将 `BrowserHandoff` 的晚期 onCreate 观测改为
+  `QBaseActivity.startActivity(Intent[, Bundle])` 的派发前拦截，仅限 QQBrowserDelegationActivity
+  发往白名单内置浏览器的可信 B 站视频链接。外跳接受则不再启动浏览器，失败则放行一次；
+  保留原生命周期与确认流程，新增重入保护、域名/路径校验和 9 项协调器测试。
+  2026-10-28 真机一轮确认外跳通过：进入 B 站视频页，无 QQ 内置浏览器启动，返回 QQ；
+  取消/失败与负对照仍待回归。
+
 ### Added
 
 - **M2.1 小程序解析后只读探针**：观察 `MiniAppConfig` / SDK `MiniAppInfo`，
@@ -13,9 +31,9 @@
   通过已知 `MiniAppDexLoader` 补装动态类，按 Method 去重。新点只记录不阻断，替代旧全方法 Sweep。
 - 新增 7 项纯 JVM 字段提取与跨 ClassLoader 反射缓存测试；修正反射同名类缓存串用和日志时间格式器线程安全。
 
-- **M2 第一刀：B 站分享卡片拦截上线** —— hook `QQBrowserDelegationActivity#onCreate`，读 intent extra `url`，
+- **M2 第一刀（旧实现，已由派发前拦截替代）** —— hook 继承的 `QQBrowserDelegationActivity#onCreate`，读 intent extra `url`，
   命中 `bilibili.com/video/(av\d+|BV…)` 则 `setPackage("tv.danmaku.bili")` 交给 B 站 App 并 `finish()` 掉跳板页。
-  实测 `HANDOFF hit av117512318557006 via http+setPackage`，直接进 B 站对应视频，无闪屏。
+  当时实测可进入 B 站对应视频；后续发现 QQ 浏览器可能已同步启动，不能以外跳成功作为阻断成功证据。
 - 拉起降级链：`https + setPackage` → `bilibili://video/<aid>` → 包启动 → 放行（失败绝不阻塞用户）
 
 - `module-hook-lsposed` 真机探针（M1.1 ~ M1.8，全部只观测、不改行为）：

@@ -2,7 +2,6 @@ package com.handoff;
 
 import android.util.Log;
 
-import com.handoff.api.Config;
 import com.handoff.api.MiniAppEvent;
 import com.handoff.hook.LsposedBackend;
 
@@ -14,9 +13,9 @@ import java.util.Map;
 import io.github.libxposed.api.XposedInterface;
 
 /**
- * Pipeline 的唯一实现（M1 探针版）。
+ * 小程序诊断事件的日志接收端，永不阻断。
  *
- * <p>M1 的职责只有一条：**把每一次小程序启动完整写进 Xposed 日志**，然后一律放行。
+ * <p>仅显式启用诊断时格式化字段快照；正常交接只输出短安装/命中摘要。
  * 规则匹配与执行在 M2 接入 `:module-rules` / `:module-executor` 后填进来。
  */
 final class PipelineImpl {
@@ -24,21 +23,20 @@ final class PipelineImpl {
     private static final String TAG = "Handoff";
 
     private final XposedInterface xposed;
-    private final String processName;
-    private final Config config = Config.M1_PROBE;
+    private final boolean diagnostics;
     // 启动回调和页面通知可能来自不同线程，SimpleDateFormat 本身不线程安全。
     private final ThreadLocal<SimpleDateFormat> clock = ThreadLocal.withInitial(
             () -> new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US));
 
-    PipelineImpl(XposedInterface xposed, String processName) {
+    PipelineImpl(XposedInterface xposed, boolean diagnostics) {
         this.xposed = xposed;
-        this.processName = processName;
+        this.diagnostics = diagnostics;
     }
 
     /** @return M1 恒为 false —— 永不阻断，绝不改变 QQ 行为。 */
     boolean handle(MiniAppEvent event) {
         try {
-            if (config.getDebug()) {
+            if (diagnostics) {
                 xposed.log(Log.INFO, TAG, format(event));
             }
         } catch (Throwable ignored) {
@@ -51,7 +49,8 @@ final class PipelineImpl {
         return new LsposedBackend.Reporter() {
             @Override
             public void info(String message) {
-                if (config.getDebug()) xposed.log(Log.INFO, TAG, message);
+                // Normal install / redirect summaries stay available for device verification.
+                xposed.log(Log.INFO, TAG, message);
             }
 
             @Override

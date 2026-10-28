@@ -18,7 +18,7 @@ import io.github.libxposed.api.XposedModuleInterface;
 public final class ModuleMain extends XposedModule {
 
     private static final String TAG = "Handoff";
-    private static final String QQ_PACKAGE_PREFIX = "com.tencent.mobileqq";
+    private static final String QQ_PACKAGE = "com.tencent.mobileqq";
 
     private PipelineImpl pipeline;
     private String processName = "";
@@ -27,10 +27,10 @@ public final class ModuleMain extends XposedModule {
     public void onModuleLoaded(XposedModuleInterface.ModuleLoadedParam param) {
         try {
             processName = param.getProcessName();
-            pipeline = new PipelineImpl(this, processName);
+            pipeline = new PipelineImpl(this, BuildConfig.HANDOFF_DIAGNOSTICS);
             log(Log.INFO, TAG, "loaded in " + processName
                     + " | " + getFrameworkName() + " " + getFrameworkVersion()
-                    + " | api=" + getApiVersion());
+                    + " | api=" + getApiVersion() + " | diagnostics=" + BuildConfig.HANDOFF_DIAGNOSTICS);
         } catch (Throwable t) {
             log(Log.ERROR, TAG, "onModuleLoaded failed", t);
         }
@@ -40,10 +40,10 @@ public final class ModuleMain extends XposedModule {
     public void onPackageReady(XposedModuleInterface.PackageReadyParam param) {
         if (param == null) return;
         try {
-            if (!param.getPackageName().startsWith(QQ_PACKAGE_PREFIX)) return;
+            if (!QQ_PACKAGE.equals(param.getPackageName())) return;
             if (pipeline == null) return;
 
-            HookBackend backend = new LsposedBackend(this, pipeline.reporter());
+            HookBackend backend = new LsposedBackend(this, pipeline.reporter(), BuildConfig.HANDOFF_DIAGNOSTICS);
             backend.install(param.getClassLoader(), processName, pipeline::handle);
         } catch (Throwable t) {
             log(Log.ERROR, TAG, "onPackageReady failed", t);

@@ -34,6 +34,10 @@ public final class HookTargets {
             new Candidate("com.tencent.mobileqq.mini.sdk.MiniAppLauncher", "openMiniApp", 3)
     );
 
+    /** BrowserHandoff: exact startActivity(Intent[, Bundle]) declarations, scoped to this receiver. */
+    public static final String BROWSER_DISPATCH_CLASS = "com.tencent.mobileqq.app.QBaseActivity";
+    public static final String BROWSER_DELEGATION_CLASS = "com.tencent.mobileqq.activity.QQBrowserDelegationActivity";
+
     /** P2 只读观测：精确列出已验证的 AppBrandUI 系列，不 Hook 共享 Activity 基类。 */
     public static final String P2_CLASS = "com.tencent.mobileqq.mini.appbrand.ui.AppBrandUI";
 
