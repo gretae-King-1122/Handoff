@@ -8,7 +8,7 @@
 **当前发布：v0.1.0。** 浏览器并行打开修复已完成一轮真机验证；轻量优化版已通过
 24 项单元测试及 Debug / Release 构建，但仍待完整真机回归，尚无实测提速结论。
 
-**未发布源码变更：** 已补充 B 站小程序视频的启动前交接，当前仅覆盖下述适配路径，
+**最新预发布：v0.2.0-rc.1。** 已补充 B 站小程序视频的启动前交接，当前仅覆盖下述适配路径，
 Bundle 漏拦补修后已完成一轮正向验证（用户确认进入 B 站 App），对应视频页与完整负向回归仍待确认；
 上述 v0.1.0 发布 APK 不包含此变更。
 
@@ -27,7 +27,7 @@ Bundle 漏拦补修后已完成一轮正向验证（用户确认进入 B 站 App
 |---|---|
 | 经 QQ 浏览器跳板打开的 B 站分享卡片／明文视频链接 | 支持；派发前交接，避免并行启动内置浏览器 |
 | `/video/av数字`、`/video/BV…` 视频地址 | 支持 `bilibili.com`、`www.bilibili.com`、`m.bilibili.com` 的标准 HTTP(S) 地址 |
-| `m.q.qq.com/a/s/…` 小程序短链 | 未发布源码：QQ 解析出 B 站 App ID 与视频页后，在已适配的小程序启动路径交接；不凭短链前缀盲拦，待真机回归 |
+| `m.q.qq.com/a/s/…` 小程序短链 | v0.2.0-rc.1：QQ 解析出 B 站 App ID 与视频页后，在已适配的小程序启动路径交接；不凭短链前缀盲拦，待完整回归 |
 | `b23.tv` 短链 | 模块不主动解析；只有 QQ 已解析并走支持的明文视频派发路径时才可能命中 |
 | 番剧、直播、专栏、其他 App | 尚未支持 |
 | 设置界面、总开关、规则编辑／热更新 | 尚未实现；停用请在 LSPosed 中禁用模块后强停 QQ |
@@ -51,6 +51,9 @@ Activity 为 `QPublicTransFragmentActivity`、无 ResultReceiver；允许普通�
 - 安装国内版哔哩哔哩，并为模块勾选 QQ `com.tencent.mobileqq` 作用域。
 
 ## 获取 APK
+
+最新小程序交接测试包见 [v0.2.0-rc.1 预发布](https://github.com/gretae-King-1122/Handoff/releases/tag/v0.2.0-rc.1)。
+它不是稳定版；原 v0.1.0 APK 不含小程序修复。正式签名兼容 v0.1.0，不能覆盖 Debug 签名包。
 
 在 [GitHub Releases](https://github.com/lihuimin1145-coder/Handoff/releases/latest) 下载
 `Handoff-v0.1.0.apk`；`SHA256SUMS.txt` 用于校验文件。也可以自行[构建](#构建)。
@@ -86,7 +89,7 @@ QQ 内部派发路径随版本变化，不保证其他版本或其他卡片类�
 会顺序尝试视频链接、B 站 scheme、B 站首页；同步启动均失败时放行 QQ 浏览器。
 最终降级到首页不代表已打开对应视频；不可用场景仍待完整真机回归。
 
-未发布的小程序交接只尝试视频链接与 scheme，不把打开首页算作视频交接；启动失败时放行 QQ 小程序。
+预发布版的小程序交接只尝试视频链接与 scheme，不把打开首页算作视频交接；启动失败时放行 QQ 小程序。
 
 **为什么某些小程序卡片仍会打开 QQ 小程序？**
 
@@ -117,7 +120,7 @@ QQ 内部派发路径随版本变化，不保证其他版本或其他卡片类�
 
 `HANDOFF dispatch installed` 表示具体派发签名已挂载；
 `HANDOFF blocked QQ browser` 表示该次内置浏览器派发被阻断，**不是用户确认或视频加载完成的证明**。
-未发布源码的 `HANDOFF mini installed` 表示小程序启动签名已挂载；`HANDOFF blocked QQ mini`
+预发布版的 `HANDOFF mini installed` 表示小程序启动签名已挂载；`HANDOFF blocked QQ mini`
 表示视频外跳请求被接受且原小程序启动被跳过，同样不代表用户已确认或视频已加载。
 `HANDOFF mini pass reason=launch-failed` 表示尝试启动失败，已放行 QQ 小程序。
 请先删除 QQ 号、聊天内容、分享链接查询参数、Token 和设备标识，再公开日志或截图。
