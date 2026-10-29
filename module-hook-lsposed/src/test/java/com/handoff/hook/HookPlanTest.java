@@ -7,8 +7,9 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class HookPlanTest {
-    @Test void normalMainInstallsOnlyTheWorkingHandoff() {
-        assertEquals(List.of(HookPlan.Step.BROWSER), HookPlan.steps("com.tencent.mobileqq", false));
+    @Test void normalMainInstallsBrowserAndMiniHandoffWithoutDiscovery() {
+        assertEquals(List.of("BROWSER", "MINI_HANDOFF"), HookPlan.steps("com.tencent.mobileqq", false)
+                .stream().map(Enum::name).toList());
     }
 
     @Test void normalAuxiliaryProcessesDoNotLoadAnyProbeClasses() {

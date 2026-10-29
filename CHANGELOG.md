@@ -5,6 +5,49 @@
 
 ## [Unreleased]
 
+### Added
+
+- **B 站小程序视频启动前交接**：新增 `MiniAppHandoff`，精确挂载主进程
+  `LaunchManagerService.startMiniApp(Activity, MiniAppInfo, Bundle, ResultReceiver)` 四参数 void 签名。
+  从已解析的 SDK 模型校验 App ID `1109937557`，仅接受 `pages/video/video[.html]` 的 `bvid`／正整数 `aid`；
+  优先采用非空 `launchParam.entryPath`，缺失才读 `firstPage.pagePath`，拒绝身份冲突、视频冲突、重复 ID 和未知页面。
+  不解析 QQ 短链、不跨点击拼接缓存，不以容器恢复／页面通知触发跳转。
+- 新增独立小程序协调器与 13 项 JVM 日志模型回放／策略测试，覆盖成功阻断、失败放行一次、原方法异常不重试、
+  重入保护、连续独立点击、浏览器 guard 隔离，以及编码／伪造 URL／陈旧首屏候选等负向输入。
+
+### Fixed
+
+- 修正小程序交接第一版对启动 Bundle 的过严限制：真机定向日志确认 B 站身份与视频 ID 均匹配，
+  但普通非空启动参数被误判为未知契约而放行。现允许普通附加参数，仅在覆盖 `KEY_APPINFO` 或携带
+  `receiver`／ResultReceiver 时保守放行；新增 3 项路由回归测试，先复现非空元数据导致的漏拦再修复。
+  增加不含参数值的放行原因摘要，删除临时诊断探针。
+- 修复已适配的 B 站小程序视频路径只记录而不交接的问题：正常运行计划在浏览器交接后安装小程序交接，
+  不再依赖诊断开关；单个安装点异常仍不影响其他安装点。
+  仅在视频外跳请求被同步接受后跳过 QQ 原启动；启动失败、无视频 ID、未知启动契约均放行。
+  保留 QQ／系统原有外跳确认；`blocked` 不代表用户确认或视频加载完成。
+
+### Changed
+
+- 抽取浏览器与小程序共用的视频拉起链（HTTP(S) + 指定包 → B 站 scheme）。
+  浏览器保留原有首页降级；小程序不把拉起首页当作视频交接成功，视频启动均失败时放行 QQ 原路径。
+- 小程序交接保守限定为 `QPublicTransFragmentActivity`、无模型覆盖和 ResultReceiver／回调的已适配路径。
+  IPC／回调启动和其他 Activity 暂不阻断，不伪造回调、不手动结束共享 Activity，保留 QQ 调用方的预加载页收尾。
+  正常日志仅输出视频 ID、字段来源与启动耗时，不记录短链、分享查询参数或登录字段。
+- README 区分未发布源码与 v0.1.0 APK 的支持范围，补充小程序边界、失败语义和诊断设备实际 QQ 版本。
+
+### Notes
+
+- 2026-10-29 诊断日志已确认：QQ 9.3.5（versionCode 14540）在四参数 `startMiniApp` 执行前，
+  同时具备 B 站 App ID、视频路径与原始短链。采用该实测入口，不把尚未挂载验证的 `doStartMiniApp` 当成实测结果。
+- 2026-10-29 验证（含 Bundle 漏拦补修）：40 项单元测试通过（0 失败／0 错误），Debug／Release 构建及 Release lint 通过；
+  使用 `--no-build-cache --rerun-tasks` 完整执行，Debug／Release 均确认 `HANDOFF_DIAGNOSTICS=false`。
+- 2026-10-29 21:38（北京时间）修复版 Debug 包已覆盖安装并重开 QQ，日志确认 `diagnostics=false`，
+  浏览器派发与四参数小程序交接签名均已挂载；这仅验证安装生效。
+- 2026-10-29 Bundle 补修后真机正向验证：21:45:36、21:45:54、21:48:13（北京时间）三次记录
+  `HANDOFF blocked QQ mini`，均从 `launchParam.entryPath` 提取同一 BV 号并以 `http+setPackage` 交接；
+  用户确认进入 B 站 App。尚未单独核实对应视频页、预加载页收尾、冷／热启动组合、取消确认、
+  失败放行和非 B 站负对照；补修后的浏览器端到端回归亦待完成，不据此宣称全场景验收。
+
 ## [0.1.0] - 2026-10-28
 
 ### Release

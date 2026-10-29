@@ -37,6 +37,11 @@ public final class HookTargets {
     public static final String BROWSER_DISPATCH_CLASS = "com.tencent.mobileqq.app.QBaseActivity";
     public static final String BROWSER_DELEGATION_CLASS = "com.tencent.mobileqq.activity.QQBrowserDelegationActivity";
 
+    /** Verified on-device 2026-10-29: startMiniApp(Activity, MiniAppInfo, Bundle, ResultReceiver). */
+    static final String MINI_LAUNCH_CLASS = "com.tencent.qqmini.sdk.server.LaunchManagerService";
+    static final String MINI_INFO_CLASS = "com.tencent.qqmini.sdk.launcher.model.MiniAppInfo";
+    static final String MINI_CALLER_CLASS = "com.tencent.mobileqq.activity.QPublicTransFragmentActivity";
+
     /** P2 只读观测：精确列出已验证的 AppBrandUI 系列，不 Hook 共享 Activity 基类。 */
     public static final String P2_CLASS = "com.tencent.mobileqq.mini.appbrand.ui.AppBrandUI";
 

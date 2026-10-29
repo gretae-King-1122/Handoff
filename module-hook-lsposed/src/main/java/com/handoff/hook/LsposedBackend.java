@@ -8,7 +8,7 @@ import com.handoff.api.HookBackend;
 import io.github.libxposed.api.XposedInterface;
 
 /**
- * libxposed 后端：正常模式仅安装已验证的浏览器交接，诊断模式再加只读发现探针。
+ * libxposed 后端：正常模式安装浏览器与小程序交接，诊断模式再加只读发现探针。
  *
  * <p>QQ 类型保留在 Hook 边界，诊断事件以中立数据传给下游；浏览器交接仍是独立实现。
  */
@@ -44,6 +44,7 @@ public final class LsposedBackend implements HookBackend {
         for (HookPlan.Step target : HookPlan.steps(processName, diagnostics)) {
             switch (target) {
                 case BROWSER -> step("M2 BrowserHandoff", () -> BrowserHandoff.install(xposed, classLoader, reporter));
+                case MINI_HANDOFF -> step("M2 MiniAppHandoff", () -> MiniAppHandoff.install(xposed, classLoader, reporter));
                 case CONTROLLER -> step("P0 ControllerHook", () -> ControllerHook.install(xposed, classLoader, processName, sink, reporter));
                 case LAUNCHER -> step("P1 LauncherHook", () -> LauncherHook.install(xposed, classLoader, processName, sink));
                 case MINI_RUNTIME -> step("M2.1 MiniRuntimeProbe", () -> MiniRuntimeProbe.install(xposed, classLoader, processName, sink, reporter));

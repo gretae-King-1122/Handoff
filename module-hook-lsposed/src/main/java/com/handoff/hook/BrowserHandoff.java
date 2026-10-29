@@ -4,7 +4,6 @@ import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.net.Uri;
 import android.os.Bundle;
 import android.os.SystemClock;
 
@@ -100,26 +99,8 @@ final class BrowserHandoff {
      * 所以必须 `setPackage` 指定包，再不行就用 {@code bilibili://} scheme。
      */
     private static String launch(Context context, String originalUrl, String id) {
-        boolean isAv = id.startsWith("av");
-        String aid = id.startsWith("av") ? id.substring(2) : id;
-
-        // ① 原 https URL，但指定 package —— 不依赖 App Links 验证
-        if (tryStart(context, new Intent(Intent.ACTION_VIEW, Uri.parse(originalUrl)))) {
-            return "http+setPackage";
-        }
-        // ② bilibili://video/<aid>
-        if (isAv) {
-            if (tryStart(context, new Intent(Intent.ACTION_VIEW, Uri.parse("bilibili://video/" + aid)))) {
-                return "scheme:aid";
-            }
-            if (tryStart(context, new Intent(Intent.ACTION_VIEW, Uri.parse("bilibili://video/av" + aid)))) {
-                return "scheme:av";
-            }
-        } else {
-            if (tryStart(context, new Intent(Intent.ACTION_VIEW, Uri.parse("bilibili://video/" + id)))) {
-                return "scheme:bvid";
-            }
-        }
+        String videoLaunch = BiliLauncher.launchVideo(context, originalUrl, id);
+        if (videoLaunch != null) return videoLaunch;
         // ③ 兜底：包启动（B 站首页），至少把用户送进 App
         try {
             Intent intent = context.getPackageManager().getLaunchIntentForPackage(BILI_PACKAGE);
@@ -134,14 +115,4 @@ final class BrowserHandoff {
         return null;
     }
 
-    private static boolean tryStart(Context context, Intent intent) {
-        try {
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            intent.setPackage(BILI_PACKAGE);
-            context.startActivity(intent);
-            return true;
-        } catch (Throwable t) {
-            return false;
-        }
-    }
 }
