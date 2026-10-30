@@ -20,18 +20,17 @@ import io.github.libxposed.api.XposedInterface;
 final class BrowserHandoff {
 
     private static final String BILI_PACKAGE = "tv.danmaku.bili";
+    private static final MethodInstallGuard INSTALLATIONS = new MethodInstallGuard();
 
     private BrowserHandoff() {
     }
 
     static void install(XposedInterface xposed, ClassLoader cl, LsposedBackend.Reporter reporter) {
-        Class<?> delegationClass;
         Class<?> dispatchClass;
         try {
-            delegationClass = Class.forName(HookTargets.BROWSER_DELEGATION_CLASS, false, cl);
             dispatchClass = Class.forName(HookTargets.BROWSER_DISPATCH_CLASS, false, cl);
         } catch (Throwable t) {
-            warn(reporter, "HANDOFF 找不到浏览器跳板/派发类", t);
+            warn(reporter, "HANDOFF 找不到浏览器派发类", t);
             return;
         }
         int installed = 0;
@@ -41,12 +40,12 @@ final class BrowserHandoff {
             try {
                 Method method = dispatchClass.getDeclaredMethod("startActivity", signature);
                 if (method.getReturnType() != void.class) continue;
-                xposed.hook(method)
+                boolean added = INSTALLATIONS.install(method, () -> xposed.hook(method)
                         .setPriority(XposedInterface.PRIORITY_HIGHEST)
                         .intercept(chain -> {
                             Object self = chain.getThisObject();
                             // Most calls on QBaseActivity aren't browser delegation; pass through immediately.
-                            if (!(self instanceof Activity) || self.getClass() != delegationClass) {
+                            if (!(self instanceof Activity) || !BrowserDispatch.delegationCaller(self.getClass())) {
                                 return chain.proceed();
                             }
                             return BrowserDispatch.intercept(() -> {
@@ -74,9 +73,9 @@ final class BrowserHandoff {
                                         + " totalUs=" + (accepted - start) / 1_000);
                                 return true;
                             }, chain::proceed);
-                        });
+                        }));
                 installed++;
-                info(reporter, "HANDOFF dispatch installed " + method);
+                if (added) info(reporter, "HANDOFF dispatch installed " + method);
             } catch (Throwable t) {
                 warn(reporter, "HANDOFF startActivity/" + signature.length + " 挂载失败", t);
             }

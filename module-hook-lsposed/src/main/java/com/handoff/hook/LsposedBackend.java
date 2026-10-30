@@ -1,6 +1,11 @@
 package com.handoff.hook;
 
 import android.os.SystemClock;
+import android.app.Application;
+import android.app.Instrumentation;
+
+import java.lang.reflect.Method;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.handoff.api.EventSink;
 import com.handoff.api.HookBackend;
@@ -25,7 +30,8 @@ public final class LsposedBackend implements HookBackend {
     private final Reporter reporter;
     private final boolean diagnostics;
     private final boolean boundaryDiagnostics;
-    private static final LoaderInstallGuard INSTALLATIONS = new LoaderInstallGuard();
+    private static final RuntimeLoaderBinding BINDINGS = new RuntimeLoaderBinding();
+    private static final AtomicBoolean APPLICATION_HOOK = new AtomicBoolean();
 
     public LsposedBackend(XposedInterface xposed, Reporter reporter) {
         this(xposed, reporter, false);
@@ -44,7 +50,37 @@ public final class LsposedBackend implements HookBackend {
 
     @Override
     public void install(ClassLoader classLoader, String processName, EventSink sink) {
-        if (!INSTALLATIONS.claim(classLoader)) return;
+        if ("com.tencent.mobileqq".equals(processName)) {
+            step("RuntimeApplicationBinding", () -> observeApplication(processName, sink));
+        }
+        step("PackageLoaderBinding", () -> BINDINGS.install(classLoader,
+                loader -> installForLoader(loader, processName, sink)));
+    }
+
+    private void observeApplication(String processName, EventSink sink) throws Throwable {
+        if (!APPLICATION_HOOK.compareAndSet(false, true)) return;
+        try {
+            Method method = Instrumentation.class.getDeclaredMethod("callApplicationOnCreate", Application.class);
+            xposed.hook(method).setPriority(XposedInterface.PRIORITY_HIGHEST).intercept(chain ->
+                    BINDINGS.beforeApplication(() -> {
+                        Application app = chain.getArgs().get(0) instanceof Application
+                                ? (Application) chain.getArgs().get(0) : null;
+                        return app != null && "com.tencent.mobileqq".equals(app.getPackageName())
+                                ? app.getClassLoader() : null;
+                    }, loader -> {
+                        info("HANDOFF binding actual Application loader=" + loader.getClass().getName());
+                        installForLoader(loader, processName, sink);
+                    }, error -> {
+                        try { reporter.warn("HANDOFF runtime loader binding failed", error); } catch (Throwable ignored) { }
+                    }, chain::proceed));
+            info("HANDOFF Application loader binding installed");
+        } catch (Throwable error) {
+            APPLICATION_HOOK.set(false);
+            throw error;
+        }
+    }
+
+    private void installForLoader(ClassLoader classLoader, String processName, EventSink sink) {
         long start = SystemClock.elapsedRealtimeNanos();
         // Browser is always first. Normal mode must not resolve any historical probe's QQ classes.
         for (HookPlan.Step target : HookPlan.steps(processName, diagnostics)) {

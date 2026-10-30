@@ -27,6 +27,10 @@ final class BrowserDispatch {
         Object proceed() throws Throwable;
     }
 
+    static boolean delegationCaller(Class<?> runtimeClass) {
+        return runtimeClass != null && HookTargets.BROWSER_DELEGATION_CLASS.equals(runtimeClass.getName());
+    }
+
     static Object intercept(Attempt attempt, Original original) throws Throwable {
         // QQ overloads may call each other; the external start can also re-enter the hook.
         if (Boolean.TRUE.equals(IN_DISPATCH.get())) return original.proceed();

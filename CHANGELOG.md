@@ -5,19 +5,27 @@
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-30
+
+### Release
+
+- 发布小程序交接与运行时 ClassLoader 补挂正式版，versionCode 升至 4；沿用独立发布签名，
+  可覆盖同签名 v0.1.0／v0.2.0-rc.1。Release 的两个诊断开关保持关闭，发布 APK 与 SHA-256 校验文件。
+  本版支持下述已适配路径，不将“正式版”解释为所有 QQ 版本、机型或热更新时机均已验证。
+
 ### Added
 
-- **小程序多入口互补（未发布、待真机回归）**：保留已适配的服务入口，新增精确四参数 static void
+- **小程序多入口互补**：保留已适配的服务入口，新增精确四参数 static void
   `MiniSDK.startMiniApp` 入口，以及主进程内的 `Activity.startActivityForResult(Intent, int, Bundle)` 派发前兜底。
   各入口独立安装，共用原有 App ID／视频路径校验与视频拉起链；命中摘要增加入口来源。
   派发兜底只接受已适配调用方到 QQ `AppBrandUI`／`AppBrandUI1~3` 的显式、非结果请求，
   拒绝转发结果、selector、非 SDK 模式、未知模型和非空回调。只在 Intent 副本上读取必要字段，
   不改原 Intent、不读登录字段、不提前结束 Activity，不以容器恢复通知触发跳转。
-  该层不依赖 QQ 内部类的 Class 身份，但尚未完成 PJD110 热补丁设备实测，不据此宣称根因已确认或故障已修复。
+  该层不依赖 QQ 内部类的 Class 身份，但不替代 SDK／服务／浏览器入口对实际运行类的补挂。
 - 新增默认关闭的定向小程序边界诊断（`-PhandoffBoundaryDiagnostics=true`，仅非 Release）：
   记录已适配方法是否进入、调用方契约以及身份／视频路径校验结果，并对少量 QQ 上游入口增加只读调用标记。
   不记录原始 App ID、视频 ID、分享链接或查询参数，不启用全量发现探针，不改变现有拦截条件；
-  Release 强制关闭。用于区分 QQ 9.3.75 新设备上的入口差异与模型提取后静默放行，尚未确认根因。
+  Release 强制关闭。用于区分 QQ 9.3.75 新设备上的入口差异与模型提取后静默放行。
   补充 Application 启动边界的新旧 ClassLoader／同名类身份对照，只记录类型和进程内身份摘要，
   用于验证 Tinker 热补丁是否让早期挂载点与实际运行类分离，不修改 QQ 补丁或其加载策略。
 - 定向诊断验证：44 项 JVM 测试通过（含 4 项摘要隐私／拒绝原因测试），Debug／Release 构建与 Release lint 通过；
@@ -25,6 +33,15 @@
 
 ### Fixed
 
+- 修复 QQ 启动时更换 ClassLoader，导致早期 Hook 挂载成功却不拦截的问题。PJD110 的定向日志确认
+  PathClassLoader 与实际 DelegateLastClassLoader 解析出的 QBaseActivity、浏览器跳板、MiniSDK 和
+  LaunchManagerService 是不同的 Class 对象。保留 package-ready 挂载，并在主进程 Application 初始化前
+  按实际 ClassLoader 补挂；按 Loader 身份及 Method 真实声明类身份防重，同名补丁类可独立安装，
+  委托到同一类的不同 Loader 不重复 Hook，单个方法安装失败可重试。
+  补挂失败不阻止 QQ 初始化，原始返回值／异常保留且只调用一次；不修改 QQ 加载器、不移除其补丁。
+  浏览器调用方保留精确类名与 Activity 类型限制，但不再依赖早期跳板 Class 身份，兼容部分类型被补丁替换的情况。
+  新增 8 项回归测试，覆盖真实同名异类、Application 前补挂、重复回调、空／相同 Loader、
+  读取／安装／日志异常、委托 Loader、方法安装失败重试、并发防重及同名跳板类；核心回归先失败再修复。
 - 根据本地 QQ 9.3.75／16580 APK 的启动队列与预加载页收尾逻辑，修正新增容器派发兜底对
   `isFinishing()` 的过严拒绝：仅在已校验的最终启动请求中允许正在结束但未销毁的过渡页，
   保留已销毁、未知路由／模型、回调和视频校验限制；早期 SDK／服务入口的生命周期策略不变。
@@ -42,10 +59,16 @@
   已追踪普通启动 Runnable 和 QQ Activity 注入层到 framework 的原始派发路径。
   本地 APK 的 SHA-256 为 `ee9da76ee5c8cb3f53abf71e9835904348c870015af75c7bc9f1846567be1f4a`，
   与正常设备此前提取的 base APK 不同，也不含故障设备单独下载的 Tinker 补丁；不能据此确认热补丁根因。
-- 多入口验证：57 项 JVM 测试通过（0 失败／0 错误），覆盖不同 ClassLoader 的同名模型、严格容器路由、
+- 补挂修复前的多入口阶段验证：57 项 JVM 测试通过（0 失败／0 错误），覆盖不同 ClassLoader 的同名模型、严格容器路由、
   外层缺信息的内层交接、同链路成功保持阻断／失败不重复、独立点击与异常放行。
   禁用构建缓存并重跑全部任务后，Debug／Release 构建及 Release lint 通过；两个诊断开关均为 false，
-  Release 签名验证通过。本轮未安装或重启设备；尚未验证实际 Hook 命中、Parcelable 读取与热补丁真机行为。
+  Release 签名验证通过；该阶段尚未安装或重启设备，不把该轮构建当作真机验收。
+- 运行时补挂修复验证：65 项 JVM 测试通过（0 失败／0 错误），Debug／Release 构建及 Release lint 通过。
+  2026-10-30 PJD110、QQ 9.3.75／16580、LSPosed 2.2.1 环境中，13:21:25 已按实际 Application Loader
+  补挂，13:21:30／39／54 记录浏览器拦截，13:21:46 记录 SDK 小程序拦截；用户确认成功。
+  首轮点击使用签名 Release 修复包；正式版再补浏览器精确调用方的跨 Loader 回归与版本元数据；
+  正式版 APK 出包后 ADB 设备已断开，未再覆盖安装，不能把首轮点击表述为最终 APK 的装机验收。
+  不等于已完成所有负向真机回归、未知晚期 Loader 切换或所有机型验证，也不保证外部视频最终加载完成。
 
 ## [0.2.0-rc.1] - 2026-10-29
 

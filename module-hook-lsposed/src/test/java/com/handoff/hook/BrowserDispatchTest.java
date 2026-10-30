@@ -14,6 +14,22 @@ class BrowserDispatchTest {
     private static final String BROWSER = "com.tencent.mobileqq.activity.QQBrowserActivity";
     private static final String VIDEO = "https://www.bilibili.com/video/BV1xx411c7mD?share_source=qq";
 
+    @Test void patchedDelegationCallerDoesNotRequireTheInitiallyResolvedClassIdentity() throws Exception {
+        Class<?> initial = com.tencent.mobileqq.activity.QQBrowserDelegationActivity.class;
+        byte[] bytes;
+        try (var stream = initial.getResourceAsStream("QQBrowserDelegationActivity.class")) {
+            assertNotNull(stream);
+            bytes = stream.readAllBytes();
+        }
+        Class<?> patched = new ClassLoader(initial.getClassLoader()) {
+            Class<?> copy() { return defineClass(initial.getName(), bytes, 0, bytes.length); }
+        }.copy();
+        assertNotSame(initial, patched);
+        assertTrue(BrowserDispatch.delegationCaller(patched));
+        assertFalse(BrowserDispatch.delegationCaller(Object.class));
+        assertFalse(BrowserDispatch.delegationCaller(null));
+    }
+
     @Test void successfulRedirectNeverStartsOriginalBrowser() throws Throwable {
         List<String> calls = new ArrayList<>();
         Object result = BrowserDispatch.intercept(() -> {

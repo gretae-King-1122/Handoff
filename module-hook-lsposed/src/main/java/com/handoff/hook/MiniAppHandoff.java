@@ -13,29 +13,30 @@ import io.github.libxposed.api.XposedInterface;
 
 /** Exact-signature resolved SDK/service boundaries, before strategy / container dispatch. */
 final class MiniAppHandoff {
+    private static final MethodInstallGuard INSTALLATIONS = new MethodInstallGuard();
     private MiniAppHandoff() { }
 
     static void install(XposedInterface xposed, ClassLoader loader, LsposedBackend.Reporter reporter,
                         boolean boundaryDiagnostics)
-            throws ReflectiveOperationException {
+            throws Throwable {
         installTarget(xposed, loader, reporter, boundaryDiagnostics, HookTargets.MINI_LAUNCH_CLASS, false, "service");
     }
 
     static void installSdk(XposedInterface xposed, ClassLoader loader, LsposedBackend.Reporter reporter,
-                           boolean boundaryDiagnostics) throws ReflectiveOperationException {
+                           boolean boundaryDiagnostics) throws Throwable {
         installTarget(xposed, loader, reporter, boundaryDiagnostics, HookTargets.MINI_SDK_CLASS, true, "sdk");
     }
 
     private static void installTarget(XposedInterface xposed, ClassLoader loader, LsposedBackend.Reporter reporter,
                                       boolean boundaryDiagnostics, String className, boolean isStatic, String entry)
-            throws ReflectiveOperationException {
+            throws Throwable {
         Class<?> service = Class.forName(className, false, loader);
         Class<?> model = Class.forName(HookTargets.MINI_INFO_CLASS, false, loader);
         Method method = service.getDeclaredMethod("startMiniApp", Activity.class, model, Bundle.class, ResultReceiver.class);
         if (method.getReturnType() != void.class || Modifier.isStatic(method.getModifiers()) != isStatic) {
             throw new NoSuchMethodException("Unsupported mini launch signature");
         }
-        xposed.hook(method).setPriority(XposedInterface.PRIORITY_HIGHEST).intercept(chain -> {
+        boolean added = INSTALLATIONS.install(method, () -> xposed.hook(method).setPriority(XposedInterface.PRIORITY_HIGHEST).intercept(chain -> {
             if (boundaryDiagnostics) info(reporter, "[DEBUG-mini-boundary] enter " + method);
             Activity activity;
             Object info;
@@ -64,8 +65,8 @@ final class MiniAppHandoff {
             }
             return MiniAppDispatch.intercept(info, supported,
                     video -> launch(activity, video, reporter, entry), chain::proceed);
-        });
-        info(reporter, "HANDOFF mini installed " + method);
+        }));
+        if (added) info(reporter, "HANDOFF mini installed " + method);
     }
 
     static boolean launch(Activity activity, MiniAppVideo video, LsposedBackend.Reporter reporter, String entry) {
