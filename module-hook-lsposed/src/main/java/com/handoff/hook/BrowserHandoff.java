@@ -8,6 +8,7 @@ import android.os.Bundle;
 import android.os.SystemClock;
 
 import java.lang.reflect.Method;
+import com.handoff.api.health.HealthEvent;
 
 import io.github.libxposed.api.XposedInterface;
 
@@ -28,9 +29,10 @@ final class BrowserHandoff {
     static void install(XposedInterface xposed, ClassLoader cl, LsposedBackend.Reporter reporter) {
         Class<?> dispatchClass;
         try {
-            dispatchClass = Class.forName(HookTargets.BROWSER_DISPATCH_CLASS, false, cl);
+            dispatchClass = Class.forName(reporter.profile().contract().browserDispatch(), false, cl);
         } catch (Throwable t) {
             warn(reporter, "HANDOFF 找不到浏览器派发类", t);
+            HealthReports.emit(reporter, HealthEvent.Kind.INSTALL_FAILED, HealthEvent.Entry.BROWSER, HealthEvent.Reason.SIGNATURE);
             return;
         }
         int installed = 0;
@@ -45,7 +47,7 @@ final class BrowserHandoff {
                         .intercept(chain -> {
                             Object self = chain.getThisObject();
                             // Most calls on QBaseActivity aren't browser delegation; pass through immediately.
-                            if (!(self instanceof Activity) || !BrowserDispatch.delegationCaller(self.getClass())) {
+                            if (!(self instanceof Activity) || !BrowserDispatch.delegationCaller(self.getClass(), reporter.profile().contract())) {
                                 return chain.proceed();
                             }
                             return BrowserDispatch.intercept(() -> {
@@ -57,13 +59,16 @@ final class BrowserHandoff {
                                 if (target == null) return false;
                                 String url = outgoing.getStringExtra("url");
                                 String id = BrowserDispatch.videoId(self.getClass().getName(),
-                                        target.getPackageName(), target.getClassName(), url);
+                                        target.getPackageName(), target.getClassName(), url, reporter.profile().contract());
                                 if (id == null) return false;
+                                HealthReports.emit(reporter, HealthEvent.Kind.ENTERED, HealthEvent.Entry.BROWSER);
+                                if (!HealthReports.enabled(reporter, HealthEvent.Entry.BROWSER)) return false;
                                 long matched = SystemClock.elapsedRealtimeNanos();
                                 String how = launch((Activity) self, url, id);
                                 long accepted = SystemClock.elapsedRealtimeNanos();
                                 if (how == null) {
                                     warn(reporter, "HANDOFF 外跳失败，放行 QQ 浏览器 id=" + id, null);
+                                    HealthReports.emit(reporter, HealthEvent.Kind.LAUNCH_FAILED, HealthEvent.Entry.BROWSER, HealthEvent.Reason.START_FAILED);
                                     return false;
                                 }
                                 // Logging must not turn an accepted launch into fail-open. No query tokens in logs.
@@ -71,13 +76,16 @@ final class BrowserHandoff {
                                         + " matchUs=" + (matched - start) / 1_000
                                         + " launchUs=" + (accepted - matched) / 1_000
                                         + " totalUs=" + (accepted - start) / 1_000);
+                                HealthReports.emit(reporter, HealthEvent.Kind.ACCEPTED, HealthEvent.Entry.BROWSER);
                                 return true;
                             }, chain::proceed);
                         }));
                 installed++;
                 if (added) info(reporter, "HANDOFF dispatch installed " + method);
+                HealthReports.emit(reporter, HealthEvent.Kind.INSTALLED, HealthEvent.Entry.BROWSER);
             } catch (Throwable t) {
                 warn(reporter, "HANDOFF startActivity/" + signature.length + " 挂载失败", t);
+                HealthReports.emit(reporter, HealthEvent.Kind.INSTALL_FAILED, HealthEvent.Entry.BROWSER, HealthEvent.Reason.SIGNATURE);
             }
         }
         if (installed == 0) warn(reporter, "HANDOFF 没有可用派发点，保留 QQ 原行为", null);

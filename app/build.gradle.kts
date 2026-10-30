@@ -33,8 +33,8 @@ android {
         applicationId = "com.handoff.module"
         minSdk = 26
         targetSdk = 37
-        versionCode = 4
-        versionName = "0.2.0"
+        versionCode = 5
+        versionName = "0.3.0-dev"
         buildConfigField("boolean", "HANDOFF_DIAGNOSTICS", handoffDiagnostics.get().toString())
         buildConfigField("boolean", "HANDOFF_BOUNDARY_DIAGNOSTICS", handoffBoundaryDiagnostics.get().toString())
     }
@@ -92,4 +92,6 @@ dependencies {
 
     implementation(project(":module-api"))
     implementation(project(":module-hook-lsposed"))
+    implementation(project(":module-ui"))
+    implementation(project(":module-storage"))
 }

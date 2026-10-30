@@ -10,6 +10,7 @@ import java.lang.reflect.Modifier;
 import java.util.Set;
 
 import io.github.libxposed.api.XposedInterface;
+import com.handoff.api.health.HealthEvent;
 
 /** Exact-signature resolved SDK/service boundaries, before strategy / container dispatch. */
 final class MiniAppHandoff {
@@ -19,19 +20,19 @@ final class MiniAppHandoff {
     static void install(XposedInterface xposed, ClassLoader loader, LsposedBackend.Reporter reporter,
                         boolean boundaryDiagnostics)
             throws Throwable {
-        installTarget(xposed, loader, reporter, boundaryDiagnostics, HookTargets.MINI_LAUNCH_CLASS, false, "service");
+        installTarget(xposed, loader, reporter, boundaryDiagnostics, reporter.profile().contract().miniService(), false, "service");
     }
 
     static void installSdk(XposedInterface xposed, ClassLoader loader, LsposedBackend.Reporter reporter,
                            boolean boundaryDiagnostics) throws Throwable {
-        installTarget(xposed, loader, reporter, boundaryDiagnostics, HookTargets.MINI_SDK_CLASS, true, "sdk");
+        installTarget(xposed, loader, reporter, boundaryDiagnostics, reporter.profile().contract().miniSdk(), true, "sdk");
     }
 
     private static void installTarget(XposedInterface xposed, ClassLoader loader, LsposedBackend.Reporter reporter,
                                       boolean boundaryDiagnostics, String className, boolean isStatic, String entry)
             throws Throwable {
         Class<?> service = Class.forName(className, false, loader);
-        Class<?> model = Class.forName(HookTargets.MINI_INFO_CLASS, false, loader);
+        Class<?> model = Class.forName(reporter.profile().contract().miniModel(), false, loader);
         Method method = service.getDeclaredMethod("startMiniApp", Activity.class, model, Bundle.class, ResultReceiver.class);
         if (method.getReturnType() != void.class || Modifier.isStatic(method.getModifiers()) != isStatic) {
             throw new NoSuchMethodException("Unsupported mini launch signature");
@@ -48,8 +49,15 @@ final class MiniAppHandoff {
                 Bundle extras = (Bundle) chain.getArgs().get(2);
                 String reason = activity == null || activity.isFinishing() || activity.isDestroyed()
                         ? "inactive-activity" : MiniAppDispatch.callerRejectionReason(activity.getClass().getName(),
-                        chain.getArgs().get(3) != null, extras == null ? Set.of() : extras.keySet());
+                        chain.getArgs().get(3) != null, extras == null ? Set.of() : extras.keySet(), reporter.profile().contract().miniCaller());
                 supported = reason == null;
+                if ("1109937557".equals(Reflect.str(info, "appId"))) {
+                    HealthReports.emit(reporter, HealthEvent.Kind.ENTERED, HealthEvent.entry(entry));
+                    if (!supported) HealthReports.emit(reporter, HealthEvent.Kind.PASSED,
+                            HealthEvent.entry(entry), HealthReports.reason(reason));
+                    else if (MiniAppVideo.read(info) == null) HealthReports.emit(reporter, HealthEvent.Kind.PASSED,
+                            HealthEvent.entry(entry), HealthEvent.Reason.MODEL);
+                }
                 if (boundaryDiagnostics) {
                     info(reporter, "[DEBUG-mini-boundary] caller="
                             + (activity == null ? "null" : activity.getClass().getName())
@@ -61,12 +69,16 @@ final class MiniAppHandoff {
                 }
             } catch (Throwable ignored) {
                 info(reporter, "HANDOFF mini pass reason=unreadable-args");
+                HealthReports.emit(reporter, HealthEvent.Kind.PASSED, HealthEvent.entry(entry), HealthEvent.Reason.UNREADABLE);
                 return chain.proceed();
             }
+            if ("1109937557".equals(Reflect.str(info, "appId"))
+                    && !HealthReports.enabled(reporter, HealthEvent.entry(entry))) return chain.proceed();
             return MiniAppDispatch.intercept(info, supported,
                     video -> launch(activity, video, reporter, entry), chain::proceed);
         }));
         if (added) info(reporter, "HANDOFF mini installed " + method);
+        HealthReports.emit(reporter, HealthEvent.Kind.INSTALLED, HealthEvent.entry(entry));
     }
 
     static boolean launch(Activity activity, MiniAppVideo video, LsposedBackend.Reporter reporter, String entry) {
@@ -74,12 +86,15 @@ final class MiniAppHandoff {
         String how = BiliLauncher.launchVideo(activity, video.url(), video.id());
         if (how == null) {
             info(reporter, "HANDOFF mini pass reason=launch-failed entry=" + entry + " id=" + video.id());
+            HealthReports.emit(reporter, HealthEvent.Kind.LAUNCH_FAILED, HealthEvent.entry(entry), HealthEvent.Reason.START_FAILED);
             return false;
         }
         // No lifecycle shortcuts or invented callback result; QQ still owns its caller's cleanup.
         info(reporter, "HANDOFF blocked QQ mini id=" + video.id() + " source=" + video.source()
                 + " entry=" + entry + " via " + how
                 + " launchUs=" + (SystemClock.elapsedRealtimeNanos() - start) / 1_000);
+        HealthReports.emit(reporter, HealthEvent.Kind.ACCEPTED,
+                "container-dispatch".equals(entry) ? HealthEvent.Entry.CONTAINER : HealthEvent.entry(entry));
         return true;
     }
 

@@ -1,0 +1,10 @@
+<resources>
+    <style name="HandoffTheme" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:colorAccent">#43C3DF</item>
+        <item name="android:windowBackground">#0B111E</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+</resources>

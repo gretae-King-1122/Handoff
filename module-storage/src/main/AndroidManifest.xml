@@ -1,0 +1,7 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+    <application>
+        <!-- Explicit Binder UID allowlist in HealthProvider; QQ has a different signature. No read API. -->
+        <provider android:name="com.handoff.storage.HealthProvider" android:authorities="${applicationId}.health"
+            android:exported="true" android:grantUriPermissions="false" tools:ignore="ExportedContentProvider" />
+    </application>
+</manifest>

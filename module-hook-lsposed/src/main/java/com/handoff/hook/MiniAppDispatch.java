@@ -23,8 +23,11 @@ final class MiniAppDispatch {
     }
 
     static String callerRejectionReason(String activityClass, boolean hasReceiver, Set<String> startExtraKeys) {
+        return callerRejectionReason(activityClass, hasReceiver, startExtraKeys, HookTargets.MINI_CALLER_CLASS);
+    }
+    static String callerRejectionReason(String activityClass, boolean hasReceiver, Set<String> startExtraKeys, String callerClass) {
         // Ordinary metadata is not a different launch contract. Only model/callback overrides matter.
-        if (!HookTargets.MINI_CALLER_CLASS.equals(activityClass)) return "unknown-activity";
+        if (!callerClass.equals(activityClass)) return "unknown-activity";
         if (startExtraKeys == null) return "unreadable-extras";
         if (hasReceiver || startExtraKeys.contains("receiver")) return "callback";
         if (startExtraKeys.contains("KEY_APPINFO")) return "overridden-model";

@@ -11,6 +11,8 @@ import com.handoff.api.EventSink;
 import com.handoff.api.HookBackend;
 
 import io.github.libxposed.api.XposedInterface;
+import com.handoff.api.health.HealthEvent;
+import com.handoff.api.health.QqAdapters;
 
 /**
  * libxposed 后端：正常模式安装浏览器与小程序交接，诊断模式再加只读发现探针。
@@ -24,6 +26,10 @@ public final class LsposedBackend implements HookBackend {
         void info(String message);
 
         void warn(String message, Throwable cause);
+        default void applicationReady(Application app) { }
+        default void event(HealthEvent event) { }
+        default boolean enabled(HealthEvent.Entry entry) { return true; }
+        default QqAdapters.Profile profile() { return QqAdapters.resolve(-1); }
     }
 
     private final XposedInterface xposed;
@@ -65,11 +71,15 @@ public final class LsposedBackend implements HookBackend {
                     BINDINGS.beforeApplication(() -> {
                         Application app = chain.getArgs().get(0) instanceof Application
                                 ? (Application) chain.getArgs().get(0) : null;
+                        if (app != null && "com.tencent.mobileqq".equals(app.getPackageName())) {
+                            try { reporter.applicationReady(app); } catch (Throwable ignored) { }
+                        }
                         return app != null && "com.tencent.mobileqq".equals(app.getPackageName())
                                 ? app.getClassLoader() : null;
                     }, loader -> {
                         info("HANDOFF binding actual Application loader=" + loader.getClass().getName());
                         installForLoader(loader, processName, sink);
+                        HealthReports.emit(reporter, HealthEvent.Kind.LOADER_BOUND, HealthEvent.Entry.SYSTEM);
                     }, error -> {
                         try { reporter.warn("HANDOFF runtime loader binding failed", error); } catch (Throwable ignored) { }
                     }, chain::proceed));
@@ -118,6 +128,11 @@ public final class LsposedBackend implements HookBackend {
         } catch (Throwable t) {
             // 该点跳过，其它点继续；QQ 无感
             try { reporter.warn(name + " install failed", t); } catch (Throwable ignored) { }
+            HealthEvent.Entry entry = name.contains("Browser") ? HealthEvent.Entry.BROWSER
+                    : name.contains("MiniSdk") ? HealthEvent.Entry.SDK
+                    : name.contains("MiniAppHandoff") ? HealthEvent.Entry.SERVICE
+                    : name.contains("MiniContainer") ? HealthEvent.Entry.CONTAINER : HealthEvent.Entry.SYSTEM;
+            HealthReports.emit(reporter, HealthEvent.Kind.INSTALL_FAILED, entry, HealthEvent.Reason.SIGNATURE);
         }
     }
 

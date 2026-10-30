@@ -9,9 +9,9 @@
         android:description="@string/module_description"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        tools:ignore="MissingApplicationIcon">
+        android:icon="@mipmap/ic_launcher">
 
-        <!-- M1 无 UI；M3 才引入 :module-ui 的 Activity -->
+        <!-- Launcher activity and write-only health provider are merged from their owning libraries. -->
 
     </application>
 

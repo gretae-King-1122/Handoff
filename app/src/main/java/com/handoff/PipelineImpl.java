@@ -24,13 +24,15 @@ final class PipelineImpl {
 
     private final XposedInterface xposed;
     private final boolean diagnostics;
+    private final HealthBridge health;
     // 启动回调和页面通知可能来自不同线程，SimpleDateFormat 本身不线程安全。
     private final ThreadLocal<SimpleDateFormat> clock = ThreadLocal.withInitial(
             () -> new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US));
 
-    PipelineImpl(XposedInterface xposed, boolean diagnostics) {
+    PipelineImpl(XposedInterface xposed, boolean diagnostics, String processName) {
         this.xposed = xposed;
         this.diagnostics = diagnostics;
+        this.health = new HealthBridge(xposed, processName);
     }
 
     /** @return M1 恒为 false —— 永不阻断，绝不改变 QQ 行为。 */
@@ -47,6 +49,10 @@ final class PipelineImpl {
 
     LsposedBackend.Reporter reporter() {
         return new LsposedBackend.Reporter() {
+            @Override public void applicationReady(android.app.Application app) { health.bind(app); }
+            @Override public void event(com.handoff.api.health.HealthEvent event) { health.event(event); }
+            @Override public boolean enabled(com.handoff.api.health.HealthEvent.Entry entry) { return health.enabled(entry); }
+            @Override public com.handoff.api.health.QqAdapters.Profile profile() { return health.profile(); }
             @Override
             public void info(String message) {
                 // Normal install / redirect summaries stay available for device verification.
