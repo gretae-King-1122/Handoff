@@ -4,10 +4,10 @@ import java.util.List;
 
 /** Keep discovery-only work out of the normal handoff path; shared by installation and tests. */
 final class HookPlan {
-    enum Step { BROWSER, MINI_HANDOFF, CONTROLLER, LAUNCHER, MINI_RUNTIME, ARK_CLICK, MINI_ENTRY, ARK_MESSAGE, TEMPLATE, STRUCT }
+    enum Step { BROWSER, MINI_SDK, MINI_HANDOFF, MINI_CONTAINER, CONTROLLER, LAUNCHER, MINI_RUNTIME, ARK_CLICK, MINI_ENTRY, ARK_MESSAGE, TEMPLATE, STRUCT }
 
-    private static final List<Step> NORMAL_MAIN = List.of(Step.BROWSER, Step.MINI_HANDOFF);
-    private static final List<Step> DIAGNOSTIC_MAIN = List.of(Step.BROWSER, Step.MINI_HANDOFF, Step.CONTROLLER, Step.LAUNCHER,
+    private static final List<Step> NORMAL_MAIN = List.of(Step.BROWSER, Step.MINI_SDK, Step.MINI_HANDOFF, Step.MINI_CONTAINER);
+    private static final List<Step> DIAGNOSTIC_MAIN = List.of(Step.BROWSER, Step.MINI_SDK, Step.MINI_HANDOFF, Step.MINI_CONTAINER, Step.CONTROLLER, Step.LAUNCHER,
             Step.MINI_RUNTIME, Step.ARK_CLICK, Step.MINI_ENTRY, Step.ARK_MESSAGE, Step.TEMPLATE, Step.STRUCT);
     private static final List<Step> DIAGNOSTIC_AUX = List.of(Step.CONTROLLER, Step.LAUNCHER, Step.MINI_RUNTIME);
 

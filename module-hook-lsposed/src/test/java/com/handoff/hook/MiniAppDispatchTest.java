@@ -158,6 +158,15 @@ class MiniAppDispatchTest {
         }, () -> fail("must block"));
     }
 
+    @Test void innerEntryCanResolveVideoAfterOuterModelWasIncomplete() throws Throwable {
+        AtomicInteger attempts = new AtomicInteger();
+        MiniAppDispatch.intercept(new Object(), true, video -> fail("outer has no video"),
+                () -> MiniAppDispatch.intercept(new Info(), true, video -> {
+                    attempts.incrementAndGet(); return true;
+                }, () -> fail("resolved inner entry must block")));
+        assertEquals(1, attempts.get());
+    }
+
     private static void pass(Object model, boolean supported) throws Throwable {
         AtomicInteger original = new AtomicInteger();
         MiniAppDispatch.intercept(model, supported, video -> fail("must not redirect"),

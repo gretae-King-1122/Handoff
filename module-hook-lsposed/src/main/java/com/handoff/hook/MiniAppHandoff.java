@@ -11,19 +11,32 @@ import java.util.Set;
 
 import io.github.libxposed.api.XposedInterface;
 
-/** Intercepts the verified resolved-model entry, before SDK strategy / container dispatch. */
+/** Exact-signature resolved SDK/service boundaries, before strategy / container dispatch. */
 final class MiniAppHandoff {
     private MiniAppHandoff() { }
 
-    static void install(XposedInterface xposed, ClassLoader loader, LsposedBackend.Reporter reporter)
+    static void install(XposedInterface xposed, ClassLoader loader, LsposedBackend.Reporter reporter,
+                        boolean boundaryDiagnostics)
             throws ReflectiveOperationException {
-        Class<?> service = Class.forName(HookTargets.MINI_LAUNCH_CLASS, false, loader);
+        installTarget(xposed, loader, reporter, boundaryDiagnostics, HookTargets.MINI_LAUNCH_CLASS, false, "service");
+    }
+
+    static void installSdk(XposedInterface xposed, ClassLoader loader, LsposedBackend.Reporter reporter,
+                           boolean boundaryDiagnostics) throws ReflectiveOperationException {
+        installTarget(xposed, loader, reporter, boundaryDiagnostics, HookTargets.MINI_SDK_CLASS, true, "sdk");
+    }
+
+    private static void installTarget(XposedInterface xposed, ClassLoader loader, LsposedBackend.Reporter reporter,
+                                      boolean boundaryDiagnostics, String className, boolean isStatic, String entry)
+            throws ReflectiveOperationException {
+        Class<?> service = Class.forName(className, false, loader);
         Class<?> model = Class.forName(HookTargets.MINI_INFO_CLASS, false, loader);
         Method method = service.getDeclaredMethod("startMiniApp", Activity.class, model, Bundle.class, ResultReceiver.class);
-        if (method.getReturnType() != void.class || Modifier.isStatic(method.getModifiers())) {
+        if (method.getReturnType() != void.class || Modifier.isStatic(method.getModifiers()) != isStatic) {
             throw new NoSuchMethodException("Unsupported mini launch signature");
         }
         xposed.hook(method).setPriority(XposedInterface.PRIORITY_HIGHEST).intercept(chain -> {
+            if (boundaryDiagnostics) info(reporter, "[DEBUG-mini-boundary] enter " + method);
             Activity activity;
             Object info;
             boolean supported;
@@ -36,6 +49,12 @@ final class MiniAppHandoff {
                         ? "inactive-activity" : MiniAppDispatch.callerRejectionReason(activity.getClass().getName(),
                         chain.getArgs().get(3) != null, extras == null ? Set.of() : extras.keySet());
                 supported = reason == null;
+                if (boundaryDiagnostics) {
+                    info(reporter, "[DEBUG-mini-boundary] caller="
+                            + (activity == null ? "null" : activity.getClass().getName())
+                            + " callerResult=" + (reason == null ? "supported" : reason)
+                            + " " + MiniBoundarySummary.describe(info));
+                }
                 if (!supported && "1109937557".equals(Reflect.str(info, "appId"))) {
                     info(reporter, "HANDOFF mini pass reason=" + reason);
                 }
@@ -43,22 +62,24 @@ final class MiniAppHandoff {
                 info(reporter, "HANDOFF mini pass reason=unreadable-args");
                 return chain.proceed();
             }
-            return MiniAppDispatch.intercept(info, supported, video -> {
-                long start = SystemClock.elapsedRealtimeNanos();
-                String how = BiliLauncher.launchVideo(activity, video.url(), video.id());
-                if (how == null) {
-                    info(reporter, "HANDOFF mini pass reason=launch-failed id=" + video.id());
-                    return false;
-                }
-                // Logging cannot undo an accepted launch; no tracking queries or object dumps.
-                info(reporter, "HANDOFF blocked QQ mini id=" + video.id() + " source=" + video.source()
-                        + " via " + how + " launchUs=" + (SystemClock.elapsedRealtimeNanos() - start) / 1_000);
-                // The original PreloadingFragment caller continues to run its quit()/result handling.
-                // Don't finish Activities here or invent a ResultReceiver success contract.
-                return true;
-            }, chain::proceed);
+            return MiniAppDispatch.intercept(info, supported,
+                    video -> launch(activity, video, reporter, entry), chain::proceed);
         });
         info(reporter, "HANDOFF mini installed " + method);
+    }
+
+    static boolean launch(Activity activity, MiniAppVideo video, LsposedBackend.Reporter reporter, String entry) {
+        long start = SystemClock.elapsedRealtimeNanos();
+        String how = BiliLauncher.launchVideo(activity, video.url(), video.id());
+        if (how == null) {
+            info(reporter, "HANDOFF mini pass reason=launch-failed entry=" + entry + " id=" + video.id());
+            return false;
+        }
+        // No lifecycle shortcuts or invented callback result; QQ still owns its caller's cleanup.
+        info(reporter, "HANDOFF blocked QQ mini id=" + video.id() + " source=" + video.source()
+                + " entry=" + entry + " via " + how
+                + " launchUs=" + (SystemClock.elapsedRealtimeNanos() - start) / 1_000);
+        return true;
     }
 
     private static void info(LsposedBackend.Reporter reporter, String message) {

@@ -24,6 +24,7 @@ public final class LsposedBackend implements HookBackend {
     private final XposedInterface xposed;
     private final Reporter reporter;
     private final boolean diagnostics;
+    private final boolean boundaryDiagnostics;
     private static final LoaderInstallGuard INSTALLATIONS = new LoaderInstallGuard();
 
     public LsposedBackend(XposedInterface xposed, Reporter reporter) {
@@ -31,9 +32,14 @@ public final class LsposedBackend implements HookBackend {
     }
 
     public LsposedBackend(XposedInterface xposed, Reporter reporter, boolean diagnostics) {
+        this(xposed, reporter, diagnostics, false);
+    }
+
+    public LsposedBackend(XposedInterface xposed, Reporter reporter, boolean diagnostics, boolean boundaryDiagnostics) {
         this.xposed = xposed;
         this.reporter = reporter;
         this.diagnostics = diagnostics;
+        this.boundaryDiagnostics = boundaryDiagnostics;
     }
 
     @Override
@@ -44,7 +50,9 @@ public final class LsposedBackend implements HookBackend {
         for (HookPlan.Step target : HookPlan.steps(processName, diagnostics)) {
             switch (target) {
                 case BROWSER -> step("M2 BrowserHandoff", () -> BrowserHandoff.install(xposed, classLoader, reporter));
-                case MINI_HANDOFF -> step("M2 MiniAppHandoff", () -> MiniAppHandoff.install(xposed, classLoader, reporter));
+                case MINI_SDK -> step("MiniSdkHandoff", () -> MiniAppHandoff.installSdk(xposed, classLoader, reporter, boundaryDiagnostics));
+                case MINI_HANDOFF -> step("M2 MiniAppHandoff", () -> MiniAppHandoff.install(xposed, classLoader, reporter, boundaryDiagnostics));
+                case MINI_CONTAINER -> step("MiniContainerHandoff", () -> MiniContainerHandoff.install(xposed, reporter));
                 case CONTROLLER -> step("P0 ControllerHook", () -> ControllerHook.install(xposed, classLoader, processName, sink, reporter));
                 case LAUNCHER -> step("P1 LauncherHook", () -> LauncherHook.install(xposed, classLoader, processName, sink));
                 case MINI_RUNTIME -> step("M2.1 MiniRuntimeProbe", () -> MiniRuntimeProbe.install(xposed, classLoader, processName, sink, reporter));
@@ -54,6 +62,9 @@ public final class LsposedBackend implements HookBackend {
                 case TEMPLATE -> step("M1.7 TemplateProbe", () -> TemplateProbe.install(xposed, classLoader, reporter));
                 case STRUCT -> step("M1.8 StructProbe", () -> StructProbe.install(xposed, classLoader, reporter));
             }
+        }
+        if (boundaryDiagnostics && "com.tencent.mobileqq".equals(processName)) {
+            step("MiniBoundaryProbe", () -> MiniBoundaryProbe.install(xposed, classLoader, reporter));
         }
         info("HANDOFF runtime diagnostics=" + diagnostics + " installUs="
                 + (SystemClock.elapsedRealtimeNanos() - start) / 1_000);

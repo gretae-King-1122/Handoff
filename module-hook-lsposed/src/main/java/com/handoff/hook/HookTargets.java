@@ -39,6 +39,7 @@ public final class HookTargets {
 
     /** Verified on-device 2026-10-29: startMiniApp(Activity, MiniAppInfo, Bundle, ResultReceiver). */
     static final String MINI_LAUNCH_CLASS = "com.tencent.qqmini.sdk.server.LaunchManagerService";
+    static final String MINI_SDK_CLASS = "com.tencent.qqmini.sdk.MiniSDK";
     static final String MINI_INFO_CLASS = "com.tencent.qqmini.sdk.launcher.model.MiniAppInfo";
     static final String MINI_CALLER_CLASS = "com.tencent.mobileqq.activity.QPublicTransFragmentActivity";
 

@@ -35,7 +35,7 @@ record MiniAppVideo(String id, String source) {
         return value instanceof String && !((String) value).isEmpty() ? (String) value : null;
     }
 
-    private static String parse(String path) {
+    static String parse(String path) {
         if (path == null || path.length() > 4096) return null;
         try {
             URI uri = new URI(path);

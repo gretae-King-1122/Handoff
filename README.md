@@ -12,6 +12,10 @@
 Bundle 漏拦补修后已完成一轮正向验证（用户确认进入 B 站 App），对应视频页与完整负向回归仍待确认；
 上述 v0.1.0 发布 APK 不包含此变更。
 
+**未发布源码：多入口互补。** 在原服务入口之外，新增 SDK 启动入口和小程序容器派发前兜底，
+共用视频校验与同步调用链内的防重复机制。构建／单测不等于真机验收：新增入口尚待回归，
+也尚未证实能解决 PJD110 上疑似热补丁／ClassLoader 差异导致的漏拦；已发布 rc.1 APK 不包含这些入口。
+
 [下载／版本](https://github.com/lihuimin1145-coder/Handoff/releases) ·
 [问题反馈](https://github.com/lihuimin1145-coder/Handoff/issues) ·
 [更新记录](CHANGELOG.md)
@@ -34,11 +38,36 @@ Bundle 漏拦补修后已完成一轮正向验证（用户确认进入 B 站 App
 
 目标 App 为国内版哔哩哔哩 `tv.danmaku.bili`。国际版、概念版、分身及其他 QQ 版本未验证。
 小程序交接限 App ID `1109937557` 的 `pages/video/video[.html]` 页面，读取 `bvid` 或正整数 `aid`。
-当前仅适配主进程的 `LaunchManagerService.startMiniApp(Activity, MiniAppInfo, Bundle, ResultReceiver)`：
+已发布 rc.1 仅适配主进程的 `LaunchManagerService.startMiniApp(Activity, MiniAppInfo, Bundle, ResultReceiver)`：
 Activity 为 `QPublicTransFragmentActivity`、无 ResultReceiver；允许普通启动附加参数，
 但 Bundle 不能覆盖 `KEY_APPINFO` 或携带 `receiver` 回调。
 其他入口、IPC／回调启动、身份或视频 ID 冲突、未知页面均保留 QQ 原行为；不承诺所有小程序入口已覆盖。
 只读诊断探针本身仍不执行交接，也不以页面恢复通知作为新的点击。
+
+未发布源码增加两层独立安装的入口：
+- `MiniSDK.startMiniApp(Activity, MiniAppInfo, Bundle, ResultReceiver)`：精确匹配四参数 static void 签名，
+  沿用服务入口的调用方和 Bundle／回调限制；单个入口不可用不影响其他入口。
+- 主进程内的 `Activity.startActivityForResult(Intent, int, Bundle)` 派发前兜底：只接受上述调用方，
+  显式目标必须为 QQ 的 `AppBrandUI`／`AppBrandUI1~3`，不接受结果请求、转发结果或 selector。
+  在 Intent 副本上读取 `sdk_mode=true`、无非空 `receiver` 的 SDK `KEY_APPINFO` 模型，
+  复用同一身份／视频校验，不读取登录字段、不修改原 Intent，也不在容器生命周期中二次跳转。
+  此处允许尚未销毁但正在结束的过渡页：QQ 可先结束预加载页，再执行排队的启动请求；
+  已销毁的调用方仍放行。SDK／服务早期入口继续要求 Activity 未结束、未销毁。
+
+外层尚无视频信息时允许内层继续识别；同一同步调用链中相同视频只尝试一次，不跨线程或跨点击缓存。
+兜底依赖 Android 派发方法和上述 QQ 契约，不等于已解决所有热更新场景或支持所有小程序入口。
+
+### QQ 9.3.75 安装包静态核对（2026-10-30）
+
+本地 `qq_9.3.75.42350.apk` 报告版本 9.3.75／versionCode 16580，SHA-256 为
+`ee9da76ee5c8cb3f53abf71e9835904348c870015af75c7bc9f1846567be1f4a`。
+已核对 SDK／服务四参数签名，以及服务层在容器 Intent 中写入 `KEY_APPINFO`、`sdk_mode` 和
+可为 null 的 `receiver`，与新增入口契约一致；启动 Bundle 最后合并，因此兜底读取最终 Intent。
+普通服务启动会将 `Activity.startActivity` 排入 UI 队列；预加载页另有 `finish()` 收尾，
+不能把 `isFinishing()` 当作最终启动请求失效的充分条件。该边界已补先失败后通过的单测。
+
+本地 APK 与正常设备此前提取的 base APK 哈希不同，且不包含故障设备另行下载的 Tinker 补丁。
+因此这些是本地安装包的静态证据，不是故障设备运行链路或热补丁根因的验证；仍须在故障设备回归。
 
 ## 环境要求
 
@@ -123,6 +152,8 @@ QQ 内部派发路径随版本变化，不保证其他版本或其他卡片类�
 预发布版的 `HANDOFF mini installed` 表示小程序启动签名已挂载；`HANDOFF blocked QQ mini`
 表示视频外跳请求被接受且原小程序启动被跳过，同样不代表用户已确认或视频已加载。
 `HANDOFF mini pass reason=launch-failed` 表示尝试启动失败，已放行 QQ 小程序。
+未发布源码的命中日志额外标明 `entry=sdk`／`service`／`container-dispatch`；
+`HANDOFF mini container installed` 仅表示派发兜底挂载，不代表实际点击命中。
 请先删除 QQ 号、聊天内容、分享链接查询参数、Token 和设备标识，再公开日志或截图。
 
 ## 构建
@@ -143,6 +174,9 @@ cd Handoff
 
 # 仅研究小程序时开启完整探针
 .\gradlew.bat :app:assembleDebug -PhandoffDiagnostics=true
+
+# 仅排查小程序启动边界，不开启完整探针或记录原始链接
+.\gradlew.bat :app:assembleDebug -PhandoffBoundaryDiagnostics=true
 ```
 
 macOS／Linux 将 `.\gradlew.bat` 换为 `./gradlew`；若无执行权限，先运行 `chmod +x gradlew`。
@@ -156,6 +190,8 @@ macOS／Linux 将 `.\gradlew.bat` 换为 `./gradlew`；若无执行权限，先�
 自行体验可构建 Debug。Release 始终关闭诊断探针。
 
 正常包应记录 `diagnostics=false`。诊断包仅适合排查问题，切回日常包时去掉构建参数并重新构建、安装。
+定向边界诊断包另有 `boundaryDiagnostics=true` 和 `[DEBUG-mini-boundary]` 标记；正常包应为
+`boundaryDiagnostics=false`。两个诊断开关在 Release 中均强制关闭；定向诊断不改变拦截规则。
 如果安装后仍出现旧日志，可追加 `--no-build-cache --rerun-tasks` 强制构建；不要仅凭安装成功判断实现已更新。
 
 Windows 中文工作目录下若测试 worker 报已编译测试类找不到，可尝试仅对该命令覆盖 daemon 编码：

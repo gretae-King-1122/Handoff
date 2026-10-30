@@ -9,6 +9,10 @@ val handoffDiagnostics = providers.gradleProperty("handoffDiagnostics").orElse("
     require(it == "true" || it == "false") { "handoffDiagnostics must be true or false" }
     it.toBoolean()
 }
+val handoffBoundaryDiagnostics = providers.gradleProperty("handoffBoundaryDiagnostics").orElse("false").map {
+    require(it == "true" || it == "false") { "handoffBoundaryDiagnostics must be true or false" }
+    it.toBoolean()
+}
 
 // Keep the publishing key and passwords outside the repository. Missing config produces an unsigned
 // release for source builders; never silently sign a release with the public Android debug identity.
@@ -32,6 +36,7 @@ android {
         versionCode = 3
         versionName = "0.2.0-rc.1"
         buildConfigField("boolean", "HANDOFF_DIAGNOSTICS", handoffDiagnostics.get().toString())
+        buildConfigField("boolean", "HANDOFF_BOUNDARY_DIAGNOSTICS", handoffBoundaryDiagnostics.get().toString())
     }
 
     buildFeatures {
@@ -54,6 +59,7 @@ android {
         release {
             isDebuggable = false
             buildConfigField("boolean", "HANDOFF_DIAGNOSTICS", "false")
+            buildConfigField("boolean", "HANDOFF_BOUNDARY_DIAGNOSTICS", "false")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")

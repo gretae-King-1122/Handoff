@@ -30,7 +30,8 @@ public final class ModuleMain extends XposedModule {
             pipeline = new PipelineImpl(this, BuildConfig.HANDOFF_DIAGNOSTICS);
             log(Log.INFO, TAG, "loaded in " + processName
                     + " | " + getFrameworkName() + " " + getFrameworkVersion()
-                    + " | api=" + getApiVersion() + " | diagnostics=" + BuildConfig.HANDOFF_DIAGNOSTICS);
+                    + " | api=" + getApiVersion() + " | diagnostics=" + BuildConfig.HANDOFF_DIAGNOSTICS
+                    + " | boundaryDiagnostics=" + BuildConfig.HANDOFF_BOUNDARY_DIAGNOSTICS);
         } catch (Throwable t) {
             log(Log.ERROR, TAG, "onModuleLoaded failed", t);
         }
@@ -43,7 +44,8 @@ public final class ModuleMain extends XposedModule {
             if (!QQ_PACKAGE.equals(param.getPackageName())) return;
             if (pipeline == null) return;
 
-            HookBackend backend = new LsposedBackend(this, pipeline.reporter(), BuildConfig.HANDOFF_DIAGNOSTICS);
+            HookBackend backend = new LsposedBackend(this, pipeline.reporter(), BuildConfig.HANDOFF_DIAGNOSTICS,
+                    BuildConfig.HANDOFF_BOUNDARY_DIAGNOSTICS);
             backend.install(param.getClassLoader(), processName, pipeline::handle);
         } catch (Throwable t) {
             log(Log.ERROR, TAG, "onPackageReady failed", t);

@@ -1,10 +1,17 @@
 package com.handoff.hook;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 
 /** Replayable mini launch decision; keeps proceed outside the fail-open exception boundary. */
 final class MiniAppDispatch {
-    private static final ThreadLocal<Boolean> IN_DISPATCH = new ThreadLocal<>();
+    private static final ThreadLocal<DispatchState> IN_DISPATCH = new ThreadLocal<>();
+
+    private static final class DispatchState {
+        final Map<String, Boolean> outcomes = new HashMap<>();
+        boolean launching;
+    }
 
     private MiniAppDispatch() { }
 
@@ -25,19 +32,38 @@ final class MiniAppDispatch {
     }
 
     static Object intercept(Object model, boolean supported, Launcher launcher, Original original) throws Throwable {
-        if (!supported || Boolean.TRUE.equals(IN_DISPATCH.get())) return original.proceed();
-        IN_DISPATCH.set(true);
+        if (!supported) return original.proceed();
+        DispatchState state = IN_DISPATCH.get();
+        boolean root = state == null;
+        if (root) {
+            state = new DispatchState();
+            IN_DISPATCH.set(state);
+        }
         try {
             boolean accepted = false;
             try {
-                MiniAppVideo video = MiniAppVideo.read(model);
-                if (video != null) accepted = launcher.launch(video);
+                if (!state.launching) {
+                    MiniAppVideo video = MiniAppVideo.read(model);
+                    if (video != null) {
+                        Boolean previous = state.outcomes.get(video.id());
+                        if (previous != null) accepted = previous;
+                        else {
+                            // Mark failure before invoking external code, including throwing launchers.
+                            state.outcomes.put(video.id(), false);
+                            state.launching = true;
+                            try {
+                                accepted = launcher.launch(video);
+                                if (accepted) state.outcomes.put(video.id(), true);
+                            } finally { state.launching = false; }
+                        }
+                    }
+                }
             } catch (Throwable ignored) {
                 // Extraction / launch errors pass through. QQ's exception must never retry proceed().
             }
             return accepted ? null : original.proceed(); // exact hooked signature returns void
         } finally {
-            IN_DISPATCH.remove();
+            if (root) IN_DISPATCH.remove();
         }
     }
 }

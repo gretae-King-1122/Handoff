@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class HookPlanTest {
     @Test void normalMainInstallsBrowserAndMiniHandoffWithoutDiscovery() {
-        assertEquals(List.of("BROWSER", "MINI_HANDOFF"), HookPlan.steps("com.tencent.mobileqq", false)
+        assertEquals(List.of("BROWSER", "MINI_SDK", "MINI_HANDOFF", "MINI_CONTAINER"), HookPlan.steps("com.tencent.mobileqq", false)
                 .stream().map(Enum::name).toList());
     }
 
