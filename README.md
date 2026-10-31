@@ -1,80 +1,55 @@
-# Handoff
+<div align="center">
+  <img src="assets/icon.png" width="120" height="120" alt="Handoff 应用图标" />
+  <h1>Handoff</h1>
+  <p><strong>QQ 负责聊天，B 站负责看视频。</strong></p>
+  <p>把 QQ 中支持的 B 站视频卡片与链接，交给 B 站 App。</p>
+  <p>
+    <a href="https://github.com/gretae-King-1122/Handoff/releases/latest"><img src="https://img.shields.io/github/v/release/gretae-King-1122/Handoff?label=Release&amp;logo=github&amp;color=008597" alt="Latest release" /></a>
+    <a href="#环境要求"><img src="https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&amp;logoColor=white" alt="Android 8.0+ 编译下限" /></a>
+    <a href="#环境要求"><img src="https://img.shields.io/badge/LSPosed-API%20102-7258F5" alt="LSPosed / libxposed API 102" /></a>
+    <a href="LICENSE"><img src="https://img.shields.io/github/license/gretae-King-1122/Handoff?label=License&amp;color=F59E0B" alt="License: Apache-2.0" /></a>
+  </p>
+  <p>
+    <a href="https://github.com/gretae-King-1122/Handoff/releases/latest">下载正式版</a> ·
+    <a href="#安装">安装说明</a> ·
+    <a href="https://github.com/gretae-King-1122/Handoff/issues">问题反馈</a> ·
+    <a href="CHANGELOG.md">更新记录</a>
+  </p>
+</div>
 
-> QQ 负责聊天，B 站负责看视频，内置浏览器就别加班了。
+## 简介
 
-**Handoff** 是个 LSPosed「视频传送门」：点击 QQ 里支持的 B 站卡片或视频链接，
-直接交给 B 站 App，不让内置浏览器抢戏。该确认还得确认，跳不过去就走原路。
+Handoff 是一个轻量 LSPosed 模块。点击 QQ 中支持的 B 站卡片或视频链接时，
+优先交给国内版 B 站 App；保留原有外跳确认，启动失败时放行 QQ 原流程。
 
-**当前发布：v0.4.0。** 新增 **Material 3 Expressive / Miuix** 双风格和首页／诊断／回归／设置四页管理界面，
-首页展示真实模块激活状态、LSPosed 信息与版本／设备信息，支持总开关、四入口开关和脱敏报告导出；
-保留原有 SDK／容器多入口互补和运行时 ClassLoader 补挂。
-146 项 JVM／Robolectric 测试、Debug／Release 构建及 Release lint 通过（0 错误、20 条警告）。
-双风格同源开发包已在 PGZ110 上实际切换、浏览四页并截图，见下方真机效果图；
-此前 v0.2.0 修复包在 PJD110、QQ 9.3.75 上记录网页和小程序实际命中，用户确认成功。
-**v0.4.0 正式 APK 的设置修改共享及 QQ 上报／视频交接链路尚未新增真机端到端回归**；
-正式发布不代表所有设备、QQ 版本或热更新时机均已验证。
-旧 v0.1.0 不含小程序交接，v0.2.0-rc.1 不含本轮运行时补挂修复。
+| 能力 | 说明 |
+| --- | --- |
+| 视频交接 | 浏览器／小程序多入口互补，按实际 ClassLoader 补挂 |
+| 双风格界面 | Material 3 Expressive / Miuix，跟随系统浅色／深色 |
+| 状态与诊断 | 展示真实激活状态、框架信息与入口信号，支持脱敏导出 |
+| 回归与设置 | 绑定环境记录测试结果，提供总开关和四入口开关 |
 
-[下载／版本](https://github.com/gretae-King-1122/Handoff/releases) ·
-[问题反馈](https://github.com/gretae-King-1122/Handoff/issues) ·
-[更新记录](CHANGELOG.md)
+**当前正式版：[v0.4.0](https://github.com/gretae-King-1122/Handoff/releases/tag/v0.4.0)。**
+146 项 JVM／Robolectric 测试及 Debug／Release 构建通过，Release lint 无错误。
 
-v0.4.0 将管理 App 升级为双风格四页界面，保留后台读写、刷新合并和诊断会话隔离。
-不将构建或视图测试通过当作真机／LSPosed 端到端验证；旧版 v0.2.0 不包含管理界面。
-
-```text
-点击支持的卡片／链接 → 校验 B 站视频地址 → 请求打开 B 站 → 原有外跳确认 → 视频页
-                                      └─ 启动失败 → 放行 QQ 原路径
-```
+> 正式发布不等于所有设备、QQ 版本或热更新时机均已验证；本版未新增设置共享／QQ 上报／视频交接真机端到端回归。
 
 ## 双风格真机效果图
 
-当前源码提供 **Material 3 Expressive** 与 **Miuix** 两套风格，入口为「设置 → 个性化 → 界面风格」。
-默认 Material，均跟随系统浅色／深色；外观本机保存，切换不需要连接框架或重开 QQ。
-首页展示真实激活状态、LSPosed 信息与版本／设备信息，另有诊断、回归和设置三页。
-
-参照 [SukiSU-Ultra](https://github.com/SukiSU-Ultra/SukiSU-Ultra) 的视觉语言，使用 Java / Android Views
-独立实现，并非复制其 GPL-3.0 源码或接入其 Compose 组件库；参考版本、实现范围见 [设计说明](UI_DESIGN.md)。
-
-以下为 **v0.4.0 发布前的同源双风格开发包**于 **2026-10-31** 在 OPPO PGZ110 上的实际截图，
-不是设计稿或 Robolectric 渲染；当时开发包仍显示 v0.3.0 / versionCode 6，正式版已升至 v0.4.0 / 7，未修改图片冒充新版本。
-环境：Android 16 / API 36、QQ 9.3.75 / 16580、LSPosed 2.2.1 / 7912；使用手机当前的浅色模式。
-原图为 1080 × 2412，仅裁去顶部 142px 系统状态栏及底部 48px 手势栏，不修改应用内容。
+在「设置 → 个性化 → 界面风格」切换，两套风格均跟随系统浅色／深色。
+外观保存在本机，切换不修改交接开关，也不需要重开 QQ。
 
 | Material 3 Expressive | Miuix |
 | :---: | :---: |
 | <img src="assets/screenshots/dual-style/material-home.png" width="280" alt="Material 真机首页：主题色激活卡、真实挂载记录、LSPosed 信息和浮岛导航"> | <img src="assets/screenshots/dual-style/miuix-home.png" width="280" alt="Miuix 真机首页：绿色激活卡、中性分组和常规底栏"> |
 | <img src="assets/screenshots/dual-style/material-settings.png" width="280" alt="Material 真机设置页：界面风格和当前适配策略"> | <img src="assets/screenshots/dual-style/miuix-settings.png" width="280" alt="Miuix 真机设置页：个性化分组和适配管理"> |
 
-截图显示的“已在 QQ 激活”来自框架运行目标列表；4 个入口挂载记录和 0 轮回归均为手机原有真实数据，
-**不代表新版的视频交接已通过端到端验收**。截图过程只切换外观、浏览页面，没有修改交接开关、
-创建回归记录或重启 QQ。v0.4.0 Release 已包含这两套风格；旧版 v0.3.0 仍保留原版三页界面。
+> **真机截图**：OPPO PGZ110 · Android 16 · QQ 9.3.75 · LSPosed 2.2.1，拍摄于 2026-10-31。
+> 来自 v0.4.0 发布前的同源开发包（图中仍标 v0.3.0 / 6），只裁去系统栏，未修改应用内容。
+> “已激活”和挂载记录不代表视频交接已验证通过；截图过程未修改交接开关或创建回归结果。
 
-<details>
-<summary>更多真机页面：诊断、回归、版本与设备</summary>
-
-| Material 3 Expressive | Miuix |
-| :---: | :---: |
-| <img src="assets/screenshots/dual-style/material-diagnostics.png" width="280" alt="Material 真机诊断页"> | <img src="assets/screenshots/dual-style/miuix-diagnostics.png" width="280" alt="Miuix 真机诊断页"> |
-| <img src="assets/screenshots/dual-style/material-regression.png" width="280" alt="Material 真机回归矩阵：尚无测试轮次"> | <img src="assets/screenshots/dual-style/miuix-regression.png" width="280" alt="Miuix 真机回归矩阵：尚无测试轮次"> |
-| <img src="assets/screenshots/dual-style/material-versions.png" width="280" alt="Material 真机首页滚动后：框架及版本设备信息"> | <img src="assets/screenshots/dual-style/miuix-versions.png" width="280" alt="Miuix 真机首页滚动后：libxposed API、作用域及版本设备信息"> |
-
-</details>
-
-<details>
-<summary>已发布 v0.3.0 原版管理界面（历史真机截图）</summary>
-
-以下三张为同日 OPPO PGZ110 上的 **v0.3.0 正式版**，与上面的双风格开发包区分。
-仅裁去系统状态栏和手势栏，保留实际界面内容。
-
-| 兼容性自检 | 回归矩阵 | 适配管理 |
-| :---: | :---: | :---: |
-| <img src="assets/screenshots/self-check.png" width="260" alt="原版 v0.3.0 真机自检页"> | <img src="assets/screenshots/matrix.png" width="260" alt="原版 v0.3.0 真机回归矩阵页"> | <img src="assets/screenshots/adapters.png" width="260" alt="原版 v0.3.0 真机适配管理页"> |
-
-当时已读取框架、QQ 作用域及开关状态，未修改开关、未重启 QQ，也未进行视频点击回归。
-“等待本版本上报”和空回归矩阵是真实状态，不代表本版视频交接已通过验证。
-
-</details>
+界面视觉参考 [SukiSU-Ultra](https://github.com/SukiSU-Ultra/SukiSU-Ultra)，使用 Android Views 独立实现，
+未复制其 GPL 源码或引入其 Compose 组件库。[设计与截图说明 →](UI_DESIGN.md)
 
 ## 支持范围
 
@@ -85,12 +60,16 @@ v0.4.0 将管理 App 升级为双风格四页界面，保留后台读写、刷�
 | `m.q.qq.com/a/s/…` 小程序短链 | QQ 解析出 B 站 App ID 与视频页后，在已适配的小程序启动路径交接；不凭短链前缀盲拦 |
 | `b23.tv` 短链 | 模块不主动解析；只有 QQ 已解析并走支持的明文视频派发路径时才可能命中 |
 | 番剧、直播、专栏、其他 App | 尚未支持 |
-| 设置界面、总开关 | v0.3.0 新增管理 App；框架未连接或设置不可读时开关只读 |
+| 开关设置 | 框架未连接或设置不可读时开关只读 |
 | 自定义规则编辑、远程适配代码／热更新 | 不支持；内置契约随模块版本维护 |
 
 目标 App 为国内版哔哩哔哩 `tv.danmaku.bili`。国际版、概念版、分身及其他 QQ 版本未验证。
+
+<details>
+<summary>适配原理与技术边界</summary>
+
 小程序交接限 App ID `1109937557` 的 `pages/video/video[.html]` 页面，读取 `bvid` 或正整数 `aid`。
-已发布 rc.1 仅适配主进程的 `LaunchManagerService.startMiniApp(Activity, MiniAppInfo, Bundle, ResultReceiver)`：
+早期 rc.1 仅适配主进程的 `LaunchManagerService.startMiniApp(Activity, MiniAppInfo, Bundle, ResultReceiver)`：
 Activity 为 `QPublicTransFragmentActivity`、无 ResultReceiver；允许普通启动附加参数，
 但 Bundle 不能覆盖 `KEY_APPINFO` 或携带 `receiver` 回调。
 其他入口、IPC／回调启动、身份或视频 ID 冲突、未知页面均保留 QQ 原行为；不承诺所有小程序入口已覆盖。
@@ -123,17 +102,7 @@ ClassLoader 补挂正常交接入口；按 Loader 身份和反射 Method 的真�
 2026-10-30 13:21 的修复包日志已确认网页及 SDK 小程序入口命中，用户确认成功；
 尚不覆盖 Application 启动之后再次更换加载器的未知路径，也没有完成全部机型、入口和负向真机回归。
 
-### QQ 9.3.75 安装包静态核对（2026-10-30）
-
-本地 `qq_9.3.75.42350.apk` 报告版本 9.3.75／versionCode 16580，SHA-256 为
-`ee9da76ee5c8cb3f53abf71e9835904348c870015af75c7bc9f1846567be1f4a`。
-已核对 SDK／服务四参数签名，以及服务层在容器 Intent 中写入 `KEY_APPINFO`、`sdk_mode` 和
-可为 null 的 `receiver`，与新增入口契约一致；启动 Bundle 最后合并，因此兜底读取最终 Intent。
-普通服务启动会将 `Activity.startActivity` 排入 UI 队列；预加载页另有 `finish()` 收尾，
-不能把 `isFinishing()` 当作最终启动请求失效的充分条件。该边界已补先失败后通过的单测。
-
-本地 APK 与正常设备此前提取的 base APK 哈希不同，且不包含故障设备另行下载的 Tinker 补丁。
-因此静态证据不能替代故障设备回归；后续运行时类身份对照及修复结果见上一节。
+</details>
 
 ## 环境要求
 
@@ -164,53 +133,6 @@ ClassLoader 补挂正常交接入口；按 Loader 身份和反射 Method 的真�
 
 v0.4.0 提供桌面入口和框架内的模块设置入口；启用模块仍需兼容的 LSPosed 框架。
 更新模块后也建议强停并重开 QQ；停用时同样操作。
-
-## 管理 App
-
-### v0.4.0：双风格四页
-
-使用 Material Components for Android 的 Material 3 DayNight 主题，以及独立实现的 Material 3 Expressive／Miuix
-两套视觉布局，跟随系统浅色／深色，保留原有应用图标。可在「设置 → 个性化 → 界面风格」本机切换，
-不修改交接开关、不重启 QQ；外观保存失败时明确提示。
-Material 导航采用 64dp 圆角浮岛，选中项横排图标＋文字，其他项仅图标；Miuix 使用常规底栏，
-所有标签可见。均保留至少 48dp 触控区，宽屏居中限宽，底座独立占位并避让系统栏，不叠盖滚动内容。
-极大字体时允许导航增高并改为纵向标签，避免挤掉文字。
-切页加入短距离上移／淡入和选中项缩放反馈，快速切换或离开页面时安全复位；
-尊重系统关闭动画的设置，初始显示与普通状态刷新不播放切页动画。
-
-- **首页**：集中展示激活状态、LSPosed／兼容框架名称、版本及版本号、libxposed API、QQ 作用域，
-  以及 Handoff／QQ／Android 版本、机型和国内版 B 站安装情况；统计当前环境的入口挂载记录与本机回归轮次。
-- **激活判定**：只在框架可读、QQ 作用域已授权，且框架运行列表确认 QQ **主进程**加载的模块版本
-  与当前安装版本一致、状态为 `UP_TO_DATE` 时显示“已在 QQ 激活”。框架连接或历史上报不能单独证明激活；
-  API 不支持或读取失败则显示未知，旧版本提示重启 QQ，未运行则等待 QQ 启动。
-- **诊断／回归／设置**：保留类型化信号、脱敏导出、回归矩阵、适配管理和五项开关；入口信号独立到诊断页。
-  激活状态与交接总开关分开显示，关闭交接不等于模块没有加载。双风格已实际装机浏览，不将其视为视频点击回归。
-
-### 保留的诊断与适配能力
-
-- **自检**：查看 QQ／Android／框架／作用域、实际运行加载器补挂及四类入口的类型化信号。
-  明确区分“已挂载”“已进入”“外跳请求被接受”和实际打开视频；不预填开发设备的成功结果。
-  框架未连接时显示未知，而不是判定没有 root。上报失败不阻塞 QQ，缺少记录也不能直接证明未挂载。
-- **回归矩阵**：用户主动开始测试轮次，绑定模块、QQ、Android、机型和框架环境。
-  网页／小程序视频只有本轮同模块、QQ 和框架的实际交接记录加用户确认，才可记为通过；
-  普通链接和未知内容放行明确标为手动确认。最多保留 20 轮，可主动导出／清除。
-- **适配管理**：展示 QQ 版本档案及实际使用的严格签名契约，未知版本只尝试已知契约并保守放行。
-  总开关和网页／SDK／服务／容器四个入口开关通过 libxposed RemotePreferences 共享给 Hook；
-  框架未连接时只读，设置读取失败保留 QQ 原流程，保存后建议强停重开 QQ。
-  档案匹配不代表设备兼容，当前两个历史版本和未知版本均沿用严格契约，不能承诺“通杀”。
-- **图标**：使用提供的门／箭头图案，包含多密度、Android 自适应和单色图标资源。
-
-### 本地数据与权限边界
-
-App 不申请网络权限、不执行 root 命令、不收集聊天内容、分享链接、视频 ID 或设备序列号，
-也不自动上传。界面诊断通道只接收白名单枚举及有限环境元数据，最多保留当前 QQ 会话的 96 条事件；
-模块自身私有存储不对外提供读取、删除或改设置 API。上报 Provider 以 Binder UID 校验模块自身
-或精确包名 `com.tencent.mobileqq`，不按调用方自报的包名放行；这不隔离同 UID 代码，也不防御设备上的 root。
-主动分享的报告包含机型／软件版本／事件时间和手动回归结果，请导出前自行核对。
-较新 QQ 主进程的 SESSION 信号会替换旧诊断会话；旧启动信号延迟到达不会覆盖新会话，重复启动信号不会清空证据。
-清除诊断不清理 QQ 数据或回归矩阵，后续事件仍可重新上报。
-
-新增的设置共享与 QQ → App 上报链路仍需在支持的 LSPosed 真机环境验收；普通未 root 环境只可查看 UI。
 
 ## 常见问题
 
@@ -248,7 +170,6 @@ QQ 内部派发路径随版本变化，不保证其他版本或其他卡片类�
 - 正常模式检查浏览器跳板的目标视频链接，以及已适配小程序启动模型中的 App ID 和候选视频路径，
   输出简短安装／命中／耗时日志；小程序外跳重建标准视频 URL，不携带分享跟踪参数。
 - 诊断包额外读取并记录启动字段及调用信息，不建议长期日用或直接公开完整日志。
-- 本地配置、临时日志、APK、常见密钥与签名材料已加入 Git 忽略规则。
 
 ## 问题反馈
 
@@ -256,7 +177,7 @@ QQ 内部派发路径随版本变化，不保证其他版本或其他卡片类�
 
 - Android／系统版本、QQ 版本、LSPosed 版本、Handoff 提交或版本号。
 - 卡片还是明文链接、视频 ID 类型、复现步骤、预期和实际结果。
-- 已脱敏的 LSPosed Handoff 日志及复现时间；v0.3.0 可另附 App 主动导出的类型化报告，
+- 已脱敏的 LSPosed Handoff 日志及复现时间；可另附主动导出的类型化报告，
   它不含完整 LSPosed 日志，也不能替代复现步骤。
 
 `HANDOFF dispatch installed` 表示具体派发签名已挂载；
@@ -269,6 +190,11 @@ v0.2.0 的命中日志额外标明 `entry=sdk`／`service`／`container-dispatch
 请先删除 QQ 号、聊天内容、分享链接查询参数、Token 和设备标识，再公开日志或截图。
 
 ## 构建
+
+需要 JDK 21+、Android SDK Platform 37 和仓库内的 Gradle Wrapper；本机使用 JDK 26 验证。
+
+<details>
+<summary>展开构建、诊断与发布签名说明</summary>
 
 需要 Git、JDK 21+ 和 Android SDK Platform 37；本机已用 JDK 26 验证。框架需提供 libxposed API 102。
 使用仓库自带 Gradle Wrapper，首次构建需联网下载依赖。
@@ -313,6 +239,8 @@ Windows 中文工作目录下若测试 worker 报已编译测试类找不到，�
 ```
 
 这不是源码编码变更，不要据此修改项目的 UTF-8 配置。
+
+</details>
 
 ## 更新记录
 

@@ -5,6 +5,12 @@
 
 ## [Unreleased]
 
+### Changed
+
+- 精简 README：加入应用图标、Handoff 自身的最新版本／Android／libxposed API／Apache-2.0 许可证徽章，
+  重新整理简介、功能与下载导航；移除额外真机页面、旧版截图、QQ 安装包静态核对、管理 App 长篇介绍和 Git 忽略规则说明，
+  技术适配与构建说明折叠展示。仅调整文档及展示资源，不修改已发布 APK 或运行逻辑。
+
 ## [0.4.0] - 2026-10-31
 
 ### Release
