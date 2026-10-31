@@ -67,7 +67,7 @@ public final class DashboardActivity extends AppCompatActivity {
     private List<HealthPolicy.Evidence> evidence = List.of();
     private long moduleCode, qqCode;
     private String moduleName = "—", qqName = "未安装", framework = "unknown", scope = "未知";
-    private boolean frameworkConnected, scoped, biliInstalled;
+    private boolean frameworkConnected, scoped, biliInstalled, douyinInstalled, kuaishouInstalled;
     private boolean checked;
     private FrameworkSnapshot frameworkSnapshot = FrameworkSnapshot.unavailable();
     private Map<String, Boolean> settings = Map.of();
@@ -168,11 +168,13 @@ public final class DashboardActivity extends AppCompatActivity {
                 var preferences = service.getRemotePreferences("handoff_settings");
                 nextSettings.put("enabled", preferences.getBoolean("enabled", true));
                 for (var entry : HealthEvent.Entry.values()) if (entry != HealthEvent.Entry.SYSTEM)
-                    nextSettings.put(entry.key, preferences.getBoolean(entry.key, true));
+                    nextSettings.put(entry.key, preferences.getBoolean(entry.key, entry.defaultEnabled()));
                 readable = true;
             } catch (Throwable ignored) { nextSettings.clear(); }
             final boolean canEdit = readable;
             boolean bili = pkg("tv.danmaku.bili") != null;
+            boolean douyin = pkg("com.ss.android.ugc.aweme") != null;
+            boolean kuaishou = pkg("com.smile.gifmaker") != null;
             handler.post(() -> {
                 if (isDestroyed()) return;
                 health = nextHealth; runs = nextRuns; evidence = HealthStore.evidence(health);
@@ -181,8 +183,10 @@ public final class DashboardActivity extends AppCompatActivity {
                 checked = true; frameworkSnapshot = snapshot;
                 framework = HealthPolicy.safe(snapshot.label()); scope = snapshot.scopeLabel();
                 frameworkConnected = snapshot.connected(); scoped = snapshot.scoped(); biliInstalled = bili;
+                douyinInstalled = douyin;
+                kuaishouInstalled = kuaishou;
                 settings = Map.copyOf(nextSettings); settingsReadable = canEdit;
-                String nextSnapshot = health.toString() + runs + moduleCode + moduleName + qqCode + qqName + snapshot + bili
+                String nextSnapshot = health.toString() + runs + moduleCode + moduleName + qqCode + qqName + snapshot + bili + douyin + kuaishou
                         + new java.util.TreeMap<>(settings) + canEdit;
                 // Keep focus, accessibility traversal and scroll stable when polling unchanged data.
                 if (refreshGate.finish(nextSnapshot)) render();
@@ -205,7 +209,7 @@ public final class DashboardActivity extends AppCompatActivity {
         add(text(detail, 13, MUTED, false), 0, 24);
     }
     private void home() {
-        heading("Handoff", "让视频回到 B 站");
+        heading("Handoff", "让链接回到对应 App");
         ActivationStatus status = ActivationStatus.resolve(checked, frameworkSnapshot);
         boolean expressive = style == UiStyle.MATERIAL;
         int heroColor = status.active() ? expressive ? CYAN : getColor(R.color.miuix_success) : PANEL;
@@ -223,7 +227,7 @@ public final class DashboardActivity extends AppCompatActivity {
         long mounted = current() ? java.util.Arrays.stream(HealthEvent.Entry.values())
                 .filter(e -> e != HealthEvent.Entry.SYSTEM && evidence.stream().anyMatch(v -> v.event().entry() == e
                         && v.event().kind() == HealthEvent.Kind.INSTALLED)).count() : 0;
-        statistic(statistics, current() ? String.valueOf(mounted) : "—", "入口挂载记录 / 4");
+        statistic(statistics, current() ? String.valueOf(mounted) : "—", "入口挂载记录 / " + (HealthEvent.Entry.values().length - 1));
         statistic(statistics, String.valueOf(runs.length()), "本机回归轮次");
         add(statistics, 0, 24);
 
@@ -243,6 +247,7 @@ public final class DashboardActivity extends AppCompatActivity {
         info(versions, "Android", Build.VERSION.RELEASE + " / API " + Build.VERSION.SDK_INT);
         info(versions, "设备型号", Build.MODEL);
         info(versions, "哔哩哔哩", biliInstalled ? "已安装国内版" : "未发现国内版"); add(versions, 0, 12);
+        add(text("抖音／快手交接为可选试验：默认关闭，可在设置中独立开启；是否打开对应作品需手动确认。", 12, MUTED, false), 0, 12);
         action(body, "查看入口与交接诊断", () -> nav.setSelectedItemId(R.id.nav_diagnostics), false);
         add(text("激活只表示框架报告当前模块已在 QQ 主进程加载，不等于视频交接已经验证通过。", 12, MUTED, false), 0, 8);
     }
@@ -259,8 +264,12 @@ public final class DashboardActivity extends AppCompatActivity {
         else if (last != null) {
             switch (last.event().kind()) {
                 case ACCEPTED -> { headline = "已记录视频交接"; description = "外跳请求已被接受；不代表用户已确认或视频已加载。"; }
-                case LAUNCH_FAILED -> { headline = "外跳请求未成功"; description = "已保留 QQ 原流程。请检查国内版 B 站是否可用。"; accent = PINK; }
-                case PASSED -> { headline = "本次保留 QQ 原流程"; description = last.event().reason().title; accent = AMBER; }
+                case LAUNCH_FAILED -> { headline = "外跳请求未成功";
+                    description = last.event().entry() == HealthEvent.Entry.KUAISHOU ? last.event().reason().title
+                            : "已保留 QQ 原流程。请检查国内版 B 站是否可用。"; accent = PINK; }
+                case PASSED -> { headline = last.event().reason() == HealthEvent.Reason.KUAISHOU_CANCELLED
+                            ? "已取消短链解析" : "本次保留 QQ 原流程";
+                    description = last.event().reason().title; accent = AMBER; }
                 case ENTERED -> { headline = "入口已进入，待确认结果"; description = "入口进入本身不算交接成功。"; }
                 default -> { }
             }
@@ -275,6 +284,8 @@ public final class DashboardActivity extends AppCompatActivity {
         info(env, "Android", Build.VERSION.RELEASE + " / API " + Build.VERSION.SDK_INT);
         info(env, "框架", frameworkConnected ? framework : "未连接 · 状态未知"); info(env, "作用域", scope);
         info(env, "B 站", biliInstalled ? "已安装国内版" : "未发现国内版"); add(env, 0, 14);
+        add(text("抖音国内版：" + (douyinInstalled ? "已安装" : "未发现") + " · 短链由抖音处理，不代表已解析或播放", 12, MUTED, false), 0, 12);
+        add(text("快手国内版：" + (kuaishouInstalled ? "已安装" : "未发现") + " · 支持作品长链及 v.kuaishou.com 短链，不代表当前设备交接已验证", 12, MUTED, false), 0, 12);
         if (frameworkConnected && frameworkSnapshot.scopeKnown() && !scoped) action(body, "申请 QQ 作用域", this::requestScope, true);
         LinearLayout entries = card(); entries.addView(text("入口状态", 16, TEXT, true)); spacer(entries, 6);
         for (var entry : HealthEvent.Entry.values()) if (entry != HealthEvent.Entry.SYSTEM) {
@@ -376,7 +387,9 @@ public final class DashboardActivity extends AppCompatActivity {
         options.addView(text(settingsReadable ? "通过框架共享设置。修改后强停重开 QQ，确保当前进程应用设置。"
                 : frameworkConnected ? "框架已连接，但设置读取失败；开关只读，当前值未知。" : "框架未连接，开关只读；不会伪装成已修改。", 12, MUTED, false));
         toggle(options, "交接总开关", "enabled");
-        for (var entry : HealthEvent.Entry.values()) if (entry != HealthEvent.Entry.SYSTEM) toggle(options, entry.title, entry.key);
+        for (var entry : HealthEvent.Entry.values()) if (entry != HealthEvent.Entry.SYSTEM)
+            toggle(options, entry.title, entry.key, entry.defaultEnabled());
+        spacer(options, 8); options.addView(text("抖音／快手试验默认关闭，开关相互独立。不猜作品 ID、不降级到首页。抖音短链交由抖音处理；快手支持作品长链及 v.kuaishou.com 短链，短链在模块后台联网解析，失败返回 QQ 浏览器，可按返回键取消。请求被接受不代表已打开作品。", 12, MUTED, false));
         add(options, 0, 16);
         for (var item : QqAdapters.profiles()) {
             LinearLayout card = card(); info(card, item.title(), item.observed() ? "有开发记录" : "未完整验证"); spacer(card, 8);
@@ -419,9 +432,12 @@ public final class DashboardActivity extends AppCompatActivity {
         if (parent.getChildCount() == 0) lp.setMarginEnd(dp(12)); parent.addView(card, lp);
     }
     private void toggle(LinearLayout parent, String title, String key) {
+        toggle(parent, title, key, true);
+    }
+    private void toggle(LinearLayout parent, String title, String key, boolean defaultValue) {
         MaterialSwitch control = new MaterialSwitch(this); control.setText(title); control.setTextColor(TEXT); control.setTextSize(14);
         control.setPadding(0, dp(10), 0, dp(10)); control.setMinHeight(dp(48));
-        control.setChecked(settings.getOrDefault(key, true)); control.setEnabled(settingsReadable);
+        control.setChecked(settings.getOrDefault(key, defaultValue)); control.setEnabled(settingsReadable);
         control.setOnCheckedChangeListener((button, checked) -> {
             control.setEnabled(false);
             worker.execute(() -> {
@@ -442,7 +458,8 @@ public final class DashboardActivity extends AppCompatActivity {
     }
     private void mark(HealthPolicy.Case test, String result) {
         if ("PASS".equals(result)) new MaterialAlertDialogBuilder(this).setTitle("确认「" + test.title + "」通过？")
-                .setMessage(test.needsEvidence ? "请确认实际进入 B 站且未并行打开 QQ 内容。模块交接信号不能代替你的页面确认。" : "这是一条手动确认记录，不代表模块自动验证了负向结果。")
+                .setMessage(test.needsEvidence ? "请确认实际进入" + (test == HealthPolicy.Case.DOUYIN ? "抖音对应作品"
+                        : test == HealthPolicy.Case.KUAISHOU ? "快手对应作品" : " B 站") + "且未并行打开 QQ 内容。模块交接信号不能代替你的页面确认。" : "这是一条手动确认记录，不代表模块自动验证了负向结果。")
                 .setNegativeButton("取消", null).setPositiveButton("确认", (d,w) -> saveResult(test, result)).show();
         else saveResult(test, result);
     }

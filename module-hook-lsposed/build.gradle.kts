@@ -25,6 +25,8 @@ android {
 dependencies {
     compileOnly(libs.libxposed.api)
     api(project(":module-api"))
+    implementation(project(":module-rules"))
+    implementation(project(":module-executor"))
     implementation(kotlin("stdlib"))
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)

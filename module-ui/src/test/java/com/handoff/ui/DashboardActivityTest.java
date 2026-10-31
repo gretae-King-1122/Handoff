@@ -63,6 +63,13 @@ public class DashboardActivityTest {
             select(activity, R.id.nav_settings);
             TextView toggle = find(root, "交接总开关");
             assertTrue(toggle instanceof MaterialSwitch); assertFalse(toggle.isEnabled());
+            TextView douyin = find(root, "抖音链接（试验）");
+            assertTrue(douyin instanceof MaterialSwitch); assertFalse(douyin.isEnabled());
+            assertFalse(((MaterialSwitch) douyin).isChecked());
+            TextView kuaishou = find(root, "快手链接（试验）");
+            assertTrue(kuaishou instanceof MaterialSwitch); assertFalse(kuaishou.isEnabled());
+            assertFalse(((MaterialSwitch) kuaishou).isChecked());
+            assertNotNull(find(root, "抖音／快手试验默认关闭，开关相互独立。不猜作品 ID、不降级到首页。抖音短链交由抖音处理；快手支持作品长链及 v.kuaishou.com 短链，短链在模块后台联网解析，失败返回 QQ 浏览器，可按返回键取消。请求被接受不代表已打开作品。"));
             select(activity, R.id.nav_diagnostics);
             assertNotNull(find(root, "最近信号"));
             select(activity, R.id.nav_home);

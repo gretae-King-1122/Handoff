@@ -37,6 +37,34 @@ public class UiStyleActivityTest {
     @Before public void setup() { new UiStyleStore(RuntimeEnvironment.getApplication()).write(UiStyle.MATERIAL); }
     @After public void cleanup() { RuntimeEnvironment.setFontScale(1f); new UiStyleStore(RuntimeEnvironment.getApplication()).write(UiStyle.MATERIAL); }
 
+    @Test @GraphicsMode(GraphicsMode.Mode.NATIVE) @Config(qualifiers = "w393dp-h851dp-notnight-xhdpi")
+    public void bothStylesExposeTheOptInPilotWithoutChangingBilibiliDefaults() throws Exception {
+        for (UiStyle style : UiStyle.values()) {
+            new UiStyleStore(RuntimeEnvironment.getApplication()).write(style);
+            try (var controller = Robolectric.buildActivity(DashboardActivity.class).create().visible()) {
+                var activity = controller.get();
+                ((DashboardNavigation) activity.findViewById(R.id.dashboard_navigation)).setSelectedItemId(R.id.nav_settings);
+                View root = activity.getWindow().getDecorView();
+                var pilot = (com.google.android.material.materialswitch.MaterialSwitch) find(root, "抖音链接（试验）");
+                var browser = (com.google.android.material.materialswitch.MaterialSwitch) find(root, "网页跳板");
+                var kuaishou = (com.google.android.material.materialswitch.MaterialSwitch) find(root, "快手链接（试验）");
+                assertNotNull(pilot); assertFalse(pilot.isChecked()); assertFalse(pilot.isEnabled());
+                assertNotNull(browser); assertTrue(browser.isChecked());
+                assertNotNull(kuaishou); assertFalse(kuaishou.isChecked()); assertFalse(kuaishou.isEnabled());
+                layout(root, 786, 1702);
+                ScrollView scroll = ReflectionHelpers.getField(activity, "scroll");
+                scroll.scrollBy(0, Math.max(0, y(pilot) - y(scroll) - 350)); layout(root, 786, 1702);
+                assertTrue(y(pilot) >= y(scroll));
+                assertTrue(y(pilot) + pilot.getHeight() <= y(scroll) + scroll.getHeight());
+                save(root, 786, 1702, new File("build/outputs/ui-preview/" + style.key + "-light/settings-douyin.png"));
+                scroll.scrollBy(0, Math.max(0, y(kuaishou) - y(scroll) - 350)); layout(root, 786, 1702);
+                assertTrue(y(kuaishou) >= y(scroll));
+                assertTrue(y(kuaishou) + kuaishou.getHeight() <= y(scroll) + scroll.getHeight());
+                save(root, 786, 1702, new File("build/outputs/ui-preview/" + style.key + "-light/settings-kuaishou.png"));
+            }
+        }
+    }
+
     @Test public void stylePickerWorksOfflineAndRestoresSettingsPage() throws Exception {
         Bundle saved = new Bundle();
         try (var controller = Robolectric.buildActivity(DashboardActivity.class).create().visible()) {
@@ -53,6 +81,24 @@ public class UiStyleActivityTest {
             assertEquals(UiStyle.MIUIX, ReflectionHelpers.getField(restored.get(), "style"));
             assertEquals(R.id.nav_settings, ((DashboardNavigation)restored.get().findViewById(R.id.dashboard_navigation)).getSelectedItemId());
             assertTrue(restored.get().findViewById(R.id.appearance_style).getContentDescription().toString().contains("Miuix"));
+        }
+    }
+    @Test public void kuaishouAndDouyinSettingsStayIndependentInBothStyles() {
+        for (UiStyle style : UiStyle.values()) {
+            new UiStyleStore(RuntimeEnvironment.getApplication()).write(style);
+            try (var controller = Robolectric.buildActivity(DashboardActivity.class).create()) {
+                var activity = controller.get();
+                ((DashboardNavigation) activity.findViewById(R.id.dashboard_navigation)).setSelectedItemId(R.id.nav_settings);
+                for (boolean douyinOn : new boolean[]{false, true}) {
+                    ReflectionHelpers.setField(activity, "settings", java.util.Map.of("enabled", true,
+                            "douyin", douyinOn, "kuaishou", !douyinOn));
+                    ReflectionHelpers.callInstanceMethod(activity, "render");
+                    View root = activity.getWindow().getDecorView();
+                    assertEquals(douyinOn, ((com.google.android.material.materialswitch.MaterialSwitch) find(root, "抖音链接（试验）")).isChecked());
+                    assertEquals(!douyinOn, ((com.google.android.material.materialswitch.MaterialSwitch) find(root, "快手链接（试验）")).isChecked());
+                    assertTrue(((com.google.android.material.materialswitch.MaterialSwitch) find(root, "网页跳板")).isChecked());
+                }
+            }
         }
     }
     @Test public void cancellingOrSelectingCurrentStyleDoesNotWriteOrRecreate() {
@@ -192,6 +238,14 @@ public class UiStyleActivityTest {
         }
     }
     private int y(View view) { int[] p=new int[2]; view.getLocationInWindow(p); return p[1]; }
+    private TextView find(View view, String label) {
+        if (view instanceof TextView text && label.contentEquals(text.getText())) return text;
+        if (view instanceof ViewGroup group) for (int i = 0; i < group.getChildCount(); i++) {
+            TextView result = find(group.getChildAt(i), label);
+            if (result != null) return result;
+        }
+        return null;
+    }
     private void layout(View root,int width,int height) {
         root.measure(View.MeasureSpec.makeMeasureSpec(width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(height,View.MeasureSpec.EXACTLY));
         root.layout(0,0,width,height); Shadows.shadowOf(Looper.getMainLooper()).idle();

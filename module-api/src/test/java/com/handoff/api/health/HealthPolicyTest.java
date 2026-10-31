@@ -56,4 +56,31 @@ class HealthPolicyTest {
         assertFalse(HealthPolicy.safe("token=中文\n").contains("\n"));
         assertEquals(80, HealthPolicy.safe("a".repeat(200)).length());
     }
+    @Test void douyinPilotIsOptInWithoutChangingExistingDefaults() {
+        for (var entry : HealthEvent.Entry.values())
+            assertEquals(entry != HealthEvent.Entry.DOUYIN && entry != HealthEvent.Entry.KUAISHOU, entry.defaultEnabled());
+    }
+    @Test void douyinAndBilibiliEvidenceCannotValidateEachOther() {
+        var douyin = event(101, 5, 16580, HealthEvent.Kind.ACCEPTED, HealthEvent.Entry.DOUYIN);
+        var bili = event(101, 5, 16580, HealthEvent.Kind.ACCEPTED, HealthEvent.Entry.BROWSER);
+        assertTrue(HealthPolicy.mayConfirm(HealthPolicy.Case.DOUYIN, 100, environment, List.of(douyin)));
+        assertFalse(HealthPolicy.mayConfirm(HealthPolicy.Case.DOUYIN, 100, environment, List.of(bili)));
+        assertFalse(HealthPolicy.mayConfirm(HealthPolicy.Case.WEB, 100, environment, List.of(douyin)));
+        assertFalse(HealthPolicy.mayConfirm(HealthPolicy.Case.MINI, 100, environment, List.of(douyin)));
+        assertFalse(HealthPolicy.mayConfirm(HealthPolicy.Case.DOUYIN, 102, environment, List.of(douyin)));
+        assertFalse(HealthPolicy.mayConfirm(HealthPolicy.Case.DOUYIN, 100, environment,
+                List.of(event(101, 5, 16580, HealthEvent.Kind.INSTALLED, HealthEvent.Entry.DOUYIN))));
+    }
+    @Test void kuaishouEvidenceIsIndependentOfEveryExistingPlatformAndEntry() {
+        var signal = event(101, 5, 16580, HealthEvent.Kind.ACCEPTED, HealthEvent.Entry.KUAISHOU);
+        assertTrue(HealthPolicy.mayConfirm(HealthPolicy.Case.KUAISHOU, 100, environment, List.of(signal)));
+        for (var test : List.of(HealthPolicy.Case.WEB, HealthPolicy.Case.MINI, HealthPolicy.Case.DOUYIN))
+            assertFalse(HealthPolicy.mayConfirm(test, 100, environment, List.of(signal)));
+        for (var entry : HealthEvent.Entry.values()) if (entry != HealthEvent.Entry.KUAISHOU)
+            assertFalse(HealthPolicy.mayConfirm(HealthPolicy.Case.KUAISHOU, 100, environment,
+                    List.of(event(101, 5, 16580, HealthEvent.Kind.ACCEPTED, entry))));
+        assertFalse(HealthPolicy.mayConfirm(HealthPolicy.Case.KUAISHOU, 102, environment, List.of(signal)));
+        assertFalse(HealthPolicy.mayConfirm(HealthPolicy.Case.KUAISHOU, 100, environment,
+                List.of(event(101, 5, 16580, HealthEvent.Kind.INSTALLED, HealthEvent.Entry.KUAISHOU))));
+    }
 }

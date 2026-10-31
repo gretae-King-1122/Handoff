@@ -5,10 +5,16 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.ResultReceiver;
 import android.os.SystemClock;
 
 import java.lang.reflect.Method;
 import com.handoff.api.health.HealthEvent;
+import com.handoff.api.links.ParsedLink;
+import com.handoff.executor.DouyinLauncher;
+import com.handoff.executor.KuaishouLauncher;
 
 import io.github.libxposed.api.XposedInterface;
 
@@ -33,6 +39,8 @@ final class BrowserHandoff {
         } catch (Throwable t) {
             warn(reporter, "HANDOFF 找不到浏览器派发类", t);
             HealthReports.emit(reporter, HealthEvent.Kind.INSTALL_FAILED, HealthEvent.Entry.BROWSER, HealthEvent.Reason.SIGNATURE);
+            HealthReports.emit(reporter, HealthEvent.Kind.INSTALL_FAILED, HealthEvent.Entry.DOUYIN, HealthEvent.Reason.SIGNATURE);
+            HealthReports.emit(reporter, HealthEvent.Kind.INSTALL_FAILED, HealthEvent.Entry.KUAISHOU, HealthEvent.Reason.SIGNATURE);
             return;
         }
         int installed = 0;
@@ -58,6 +66,35 @@ final class BrowserHandoff {
                                 ComponentName target = outgoing.getComponent();
                                 if (target == null) return false;
                                 String url = outgoing.getStringExtra("url");
+                                // Independent opt-in pilot. Do not change Bilibili matching, launch order or fallback.
+                                ParsedLink douyin = DouyinBrowserDispatch.parse(self.getClass().getName(),
+                                        target.getPackageName(), target.getClassName(), url, reporter.profile().contract());
+                                if (douyin != null) {
+                                    if (((Activity) self).isDestroyed() || outgoing.getSelector() != null
+                                            || (outgoing.getFlags() & Intent.FLAG_ACTIVITY_FORWARD_RESULT) != 0) return false;
+                                    return DouyinHandoff.redirect(() -> DouyinLauncher.launch((Activity) self, douyin), reporter);
+                                }
+                                ParsedLink kuaishou = KuaishouBrowserDispatch.parse(self.getClass().getName(),
+                                        target.getPackageName(), target.getClassName(), url, reporter.profile().contract());
+                                if (kuaishou != null) {
+                                    if (((Activity) self).isDestroyed() || outgoing.getSelector() != null
+                                            || (outgoing.getFlags() & Intent.FLAG_ACTIVITY_FORWARD_RESULT) != 0) return false;
+                                    if (kuaishou.kind() == ParsedLink.Kind.SHORT_LINK) {
+                                        return KuaishouHandoff.redirectShort(completion -> KuaishouLauncher.resolveShort(
+                                                (Activity) self, kuaishou, outgoing,
+                                                new ResultReceiver(new Handler(Looper.getMainLooper())) {
+                                                    @Override protected void onReceiveResult(int code, Bundle data) {
+                                                        completion.complete(switch (code) {
+                                                            case KuaishouLauncher.STARTED -> KuaishouHandoff.ShortResult.ACCEPTED;
+                                                            case KuaishouLauncher.CANCELLED -> KuaishouHandoff.ShortResult.CANCELLED;
+                                                            case KuaishouLauncher.FALLBACK_FAILED -> KuaishouHandoff.ShortResult.FALLBACK_FAILED;
+                                                            default -> KuaishouHandoff.ShortResult.FAILED;
+                                                        });
+                                                    }
+                                                }), reporter);
+                                    }
+                                    return KuaishouHandoff.redirect(() -> KuaishouLauncher.launch((Activity) self, kuaishou), reporter);
+                                }
                                 String id = BrowserDispatch.videoId(self.getClass().getName(),
                                         target.getPackageName(), target.getClassName(), url, reporter.profile().contract());
                                 if (id == null) return false;
@@ -83,9 +120,13 @@ final class BrowserHandoff {
                 installed++;
                 if (added) info(reporter, "HANDOFF dispatch installed " + method);
                 HealthReports.emit(reporter, HealthEvent.Kind.INSTALLED, HealthEvent.Entry.BROWSER);
+                HealthReports.emit(reporter, HealthEvent.Kind.INSTALLED, HealthEvent.Entry.DOUYIN);
+                HealthReports.emit(reporter, HealthEvent.Kind.INSTALLED, HealthEvent.Entry.KUAISHOU);
             } catch (Throwable t) {
                 warn(reporter, "HANDOFF startActivity/" + signature.length + " 挂载失败", t);
                 HealthReports.emit(reporter, HealthEvent.Kind.INSTALL_FAILED, HealthEvent.Entry.BROWSER, HealthEvent.Reason.SIGNATURE);
+                HealthReports.emit(reporter, HealthEvent.Kind.INSTALL_FAILED, HealthEvent.Entry.DOUYIN, HealthEvent.Reason.SIGNATURE);
+                HealthReports.emit(reporter, HealthEvent.Kind.INSTALL_FAILED, HealthEvent.Entry.KUAISHOU, HealthEvent.Reason.SIGNATURE);
             }
         }
         if (installed == 0) warn(reporter, "HANDOFF 没有可用派发点，保留 QQ 原行为", null);

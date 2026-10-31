@@ -55,7 +55,7 @@ final class HealthBridge {
     boolean enabled(HealthEvent.Entry entry) {
         try {
             if (settings == null) settings = xposed.getRemotePreferences("handoff_settings");
-            return settings.getBoolean("enabled", true) && settings.getBoolean(entry.key, true);
+            return settings.getBoolean("enabled", true) && settings.getBoolean(entry.key, entry.defaultEnabled());
         } catch (Throwable ignored) {
             // The hook boundary reports CONFIG_UNAVAILABLE, not a misleading user-disabled signal.
             throw new IllegalStateException("Settings unavailable");

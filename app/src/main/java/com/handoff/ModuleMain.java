@@ -29,6 +29,7 @@ public final class ModuleMain extends XposedModule {
             processName = param.getProcessName();
             pipeline = new PipelineImpl(this, BuildConfig.HANDOFF_DIAGNOSTICS, processName);
             log(Log.INFO, TAG, "loaded in " + processName
+                    + " | module=" + BuildConfig.VERSION_NAME + "/" + BuildConfig.VERSION_CODE
                     + " | " + getFrameworkName() + " " + getFrameworkVersion()
                     + " | api=" + getApiVersion() + " | diagnostics=" + BuildConfig.HANDOFF_DIAGNOSTICS
                     + " | boundaryDiagnostics=" + BuildConfig.HANDOFF_BOUNDARY_DIAGNOSTICS);

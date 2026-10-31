@@ -1,0 +1,9 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <application>
+        <!-- Explicit QQ handoff only; immutable QQ-created fallback capability required before I/O. -->
+        <activity android:name="com.handoff.executor.KuaishouResolveActivity"
+            android:exported="true" android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar" />
+    </application>
+</manifest>
