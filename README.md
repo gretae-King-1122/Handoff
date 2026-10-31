@@ -1,8 +1,8 @@
 <div align="center">
   <img src="assets/icon.png" width="120" height="120" alt="Handoff 应用图标" />
   <h1>Handoff</h1>
-  <p><strong>QQ 负责聊天，B 站负责看视频。</strong></p>
-  <p>把 QQ 中支持的 B 站视频卡片与链接，交给 B 站 App。</p>
+  <p><strong>QQ 负责聊天，链接回到对应 App。</strong></p>
+  <p>把 QQ 中支持的 B 站、抖音和快手视频链接，交给对应 App。</p>
   <p>
     <a href="https://github.com/gretae-King-1122/Handoff/releases/latest"><img src="https://img.shields.io/github/v/release/gretae-King-1122/Handoff?label=Release&amp;logo=github&amp;color=008597" alt="Latest release" /></a>
     <a href="#环境要求"><img src="https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&amp;logoColor=white" alt="Android 8.0+ 编译下限" /></a>
@@ -19,23 +19,23 @@
 
 ## 简介
 
-Handoff 是一个轻量 LSPosed 模块。点击 QQ 中支持的 B 站卡片或视频链接时，
-优先交给国内版 B 站 App；保留原有外跳确认，启动失败时放行 QQ 原流程。
+Handoff 是一个轻量 LSPosed 模块。点击 QQ 中支持的视频卡片或链接时，
+交给国内版 B 站、抖音或快手 App；保留原有外跳确认。抖音／快手交接默认关闭，可独立开启。
 
 | 能力 | 说明 |
 | --- | --- |
 | 视频交接 | 浏览器／小程序多入口互补，按实际 ClassLoader 补挂 |
 | 双风格界面 | Material 3 Expressive / Miuix，跟随系统浅色／深色 |
 | 状态与诊断 | 展示真实激活状态、框架信息与入口信号，支持脱敏导出 |
-| 回归与设置 | 绑定环境记录测试结果，提供总开关和四入口开关 |
+| 回归与设置 | 绑定环境记录测试结果，提供总开关和六类入口开关 |
 
-**当前正式版：[v0.4.0](https://github.com/gretae-King-1122/Handoff/releases/tag/v0.4.0)。**
-146 项 JVM／Robolectric 测试及 Debug／Release 构建通过，Release lint 无错误。
+**当前正式版：[v0.6.0](https://github.com/gretae-King-1122/Handoff/releases/tag/v0.6.0)。**
+210 项 JVM／Robolectric 测试、Debug／Release 构建及 lint 检查通过。
 
-> 正式发布不等于所有设备、QQ 版本或热更新时机均已验证；本版未新增设置共享／QQ 上报／视频交接真机端到端回归。
+> 正式发布不等于所有设备、QQ 版本或热更新时机均已验证；本次正式版本号 APK 未额外装机回归，开发包的用户确认范围见下。
 
-> **工作区未发布试验：抖音／快手链接交接（0.4.2-dev）。** 两者默认关闭、独立设置，不重构 B 站现有逻辑。
-> 用户已确认当前设备的抖音、快手作品长链及 `v.kuaishou.com` 短链可进入对应作品；短链后台解析失败时返回 QQ 浏览器。210 项自动化测试通过，不代表 v0.4.0 正式版已支持或所有设备均兼容。
+> **v0.6.0 新增抖音／快手链接交接。** 两者仍为默认关闭的可选试验功能，独立设置，不重构 B 站现有逻辑。
+> 用户已确认当前设备的抖音、快手作品长链及 `v.kuaishou.com` 短链可进入对应作品；短链后台解析失败时返回 QQ 浏览器。上述真机确认来自同源开发包，不代表所有设备均兼容。
 > [抖音说明 →](DOUYIN_PILOT.md) · [快手范围与验收 →](KUAISHOU_PILOT.md)
 
 ## 双风格真机效果图
@@ -63,11 +63,14 @@ Handoff 是一个轻量 LSPosed 模块。点击 QQ 中支持的 B 站卡片或�
 | `/video/av数字`、`/video/BV…` 视频地址 | 支持 `bilibili.com`、`www.bilibili.com`、`m.bilibili.com` 的标准 HTTP(S) 地址 |
 | `m.q.qq.com/a/s/…` 小程序短链 | QQ 解析出 B 站 App ID 与视频页后，在已适配的小程序启动路径交接；不凭短链前缀盲拦 |
 | `b23.tv` 短链 | 模块不主动解析；只有 QQ 已解析并走支持的明文视频派发路径时才可能命中 |
-| 番剧、直播、专栏、其他 App | 尚未支持 |
+| 抖音 `v.douyin.com` 短链、标准 `/video/数字ID` | 可选；短链直接交由国内抖音处理，失败不降级到首页 |
+| 快手 `/fw/photo/…`、`/fw/long-video/…` 作品分享页 | 可选；限定 `v.m.chenzhongtech.com`，只交给国内快手 |
+| 快手 `v.kuaishou.com` 短链 | 可选；模块后台读取受限 HTTPS 重定向，解析/启动失败时返回 QQ 原浏览器，支持取消 |
+| 番剧、直播、专栏、其他未列出的 App／域名 | 尚未支持 |
 | 开关设置 | 框架未连接或设置不可读时开关只读 |
 | 自定义规则编辑、远程适配代码／热更新 | 不支持；内置契约随模块版本维护 |
 
-目标 App 为国内版哔哩哔哩 `tv.danmaku.bili`。国际版、概念版、分身及其他 QQ 版本未验证。
+目标 App 为国内版哔哩哔哩 `tv.danmaku.bili`、抖音 `com.ss.android.ugc.aweme` 和快手 `com.smile.gifmaker`。国际版、极速版、分身及其他 QQ 版本未验证。
 
 <details>
 <summary>适配原理与技术边界</summary>
@@ -120,8 +123,8 @@ ClassLoader 补挂正常交接入口；按 Loader 身份和反射 Method 的真�
 
 ## 获取 APK
 
-在 [v0.4.0 正式版](https://github.com/gretae-King-1122/Handoff/releases/tag/v0.4.0) 下载
-`Handoff-v0.4.0.apk`；`SHA256SUMS.txt` 用于校验文件。正式签名兼容此前正式签名包及 0.3.0-dev，
+在 [v0.6.0 正式版](https://github.com/gretae-King-1122/Handoff/releases/tag/v0.6.0) 下载
+`Handoff-v0.6.0.apk`；`SHA256SUMS.txt` 用于校验文件。正式签名兼容此前正式签名包及 0.3.0-dev，
 不能覆盖 Debug 签名包。也可以自行[构建](#构建)。
 
 > 官方 APK 使用独立发布签名。旧 debug 包无法直接覆盖安装，需先在 LSPosed 停用并卸载旧 Handoff，
@@ -133,16 +136,17 @@ ClassLoader 补挂正常交接入口；按 Loader 身份和反射 Method 的真�
 2. 打开 LSPosed → 模块 → 启用 **Handoff**。
 3. 作用域勾选 **QQ**，不需要勾选 B 站或系统框架。
 4. 强制停止 QQ，再重新打开。
-5. 在 QQ 中点击支持的 B 站视频卡片／链接，按原有弹窗确认外跳。
+5. 如需抖音／快手交接，在 Handoff 设置中独立开启对应试验开关，再强停重开 QQ；只开启抖音不会自动开启快手。
+6. 在 QQ 中点击支持的视频卡片／链接，按原有弹窗确认外跳。
 
-v0.4.0 提供桌面入口和框架内的模块设置入口；启用模块仍需兼容的 LSPosed 框架。
+本版提供桌面入口和框架内的模块设置入口；启用模块仍需兼容的 LSPosed 框架。
 更新模块后也建议强停并重开 QQ；停用时同样操作。
 
 ## 常见问题
 
 **点了仍打开 QQ 浏览器？**
 
-先确认模块已启用、作用域已勾选、QQ 已强停重开，并检查链接是否属于支持范围。
+先确认模块已启用、作用域已勾选、QQ 已强停重开，并检查链接是否属于支持范围。抖音／快手还需开启各自独立开关；快手短链无法解析时也会返回 QQ 浏览器。
 QQ 内部派发路径随版本变化，不保证其他版本或其他卡片类型可用。
 
 **为什么还有“是否跳转”的弹窗？**
@@ -170,7 +174,8 @@ QQ 内部派发路径随版本变化，不保证其他版本或其他卡片类�
 
 ## 隐私
 
-- 模块不主动请求网络、不上传日志，不提供遥测；QQ 与 B 站自身的联网行为不受此声明约束。
+- 模块不上传日志、不提供遥测。开启快手功能并点击支持的短链时，模块会向 `v.kuaishou.com` 发起 HTTPS 请求，读取最多 3 次重定向；不请求作品正文、不访问未知重定向目标、不在 QQ UI 线程联网。
+- B 站和抖音交接路径不由模块主动联网；QQ 及目标 App 自身的联网行为不受此声明约束。
 - 正常模式检查浏览器跳板的目标视频链接，以及已适配小程序启动模型中的 App ID 和候选视频路径，
   输出简短安装／命中／耗时日志；小程序外跳重建标准视频 URL，不携带分享跟踪参数。
 - 诊断包额外读取并记录启动字段及调用信息，不建议长期日用或直接公开完整日志。
@@ -256,6 +261,6 @@ Windows 中文工作目录下若测试 worker 报已编译测试类找不到，�
 
 ## 免责
 
-本项目为非官方实验性模块，与腾讯、哔哩哔哩无关联。不修改网络、不伪造设备指纹，也不规避风控。
+本项目为非官方实验性模块，与腾讯、哔哩哔哩、抖音、快手无关联。不修改网络、不伪造设备指纹，也不规避风控。
 Root 与 Hook 第三方应用可能造成崩溃、兼容性或账号风险；不保证零封号风险。
 请自行评估，避免用于主力账号的支付、登录等关键场景。取消确认、外跳失败、非 B 站与连续点击仍需完整回归。
