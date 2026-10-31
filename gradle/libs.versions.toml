@@ -5,10 +5,12 @@ libxposed = "102.0.0"
 junit = "5.11.4"
 robolectric = "4.16.1"
 asm = "9.9"
+material = "1.13.0"
 
 [libraries]
 libxposed-api = { group = "io.github.libxposed", name = "api", version.ref = "libxposed" }
 libxposed-service = { group = "io.github.libxposed", name = "service", version.ref = "libxposed" }
+material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 
 junit-bom = { group = "org.junit", name = "junit-bom", version.ref = "junit" }
 junit-jupiter = { group = "org.junit.jupiter", name = "junit-jupiter" }

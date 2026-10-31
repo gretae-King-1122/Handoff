@@ -1,10 +1,39 @@
 <resources>
-    <style name="HandoffTheme" parent="android:style/Theme.Material.NoActionBar">
+    <style name="HandoffTheme" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/handoff_primary</item>
+        <item name="colorOnPrimary">@color/handoff_on_primary</item>
+        <item name="colorPrimaryContainer">@color/handoff_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/handoff_on_primary_container</item>
+        <item name="colorSecondaryContainer">@color/handoff_primary_container</item>
+        <item name="colorOnSecondaryContainer">@color/handoff_on_primary_container</item>
+        <item name="colorSurface">@color/handoff_surface</item>
+        <item name="colorOnSurface">@color/handoff_on_surface</item>
+        <item name="colorOnSurfaceVariant">@color/handoff_on_surface_variant</item>
+        <item name="colorSurfaceContainer">@color/handoff_surface_container</item>
+        <item name="colorOutlineVariant">@color/handoff_outline_variant</item>
+        <item name="android:colorBackground">@color/handoff_surface</item>
+        <item name="android:windowBackground">@color/handoff_surface</item>
+        <item name="android:statusBarColor">@color/handoff_surface</item>
+        <item name="android:navigationBarColor">@color/handoff_surface</item>
+        <item name="android:windowLightStatusBar">@bool/handoff_light_system_bars</item>
+        <item name="android:windowLightNavigationBar">@bool/handoff_light_system_bars</item>
         <item name="android:fontFamily">sans</item>
-        <item name="android:windowLightStatusBar">false</item>
-        <item name="android:windowLightNavigationBar">false</item>
-        <item name="android:colorAccent">#43C3DF</item>
-        <item name="android:windowBackground">#0B111E</item>
-        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+    <style name="HandoffTheme.Miuix" parent="HandoffTheme">
+        <item name="colorPrimary">@color/miuix_primary</item>
+        <item name="colorOnPrimary">@color/miuix_on_primary</item>
+        <item name="colorPrimaryContainer">@color/miuix_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/miuix_on_primary_container</item>
+        <item name="colorSecondaryContainer">@color/miuix_primary_container</item>
+        <item name="colorOnSecondaryContainer">@color/miuix_on_primary_container</item>
+        <item name="colorSurface">@color/miuix_surface</item>
+        <item name="colorSurfaceContainer">@color/miuix_card</item>
+        <item name="colorOnSurface">@color/miuix_on_surface</item>
+        <item name="colorOnSurfaceVariant">@color/miuix_muted</item>
+        <item name="colorOutlineVariant">@color/miuix_outline</item>
+        <item name="android:colorBackground">@color/miuix_surface</item>
+        <item name="android:windowBackground">@color/miuix_surface</item>
+        <item name="android:statusBarColor">@color/miuix_surface</item>
+        <item name="android:navigationBarColor">@color/miuix_surface</item>
     </style>
 </resources>

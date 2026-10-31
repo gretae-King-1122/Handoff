@@ -9,7 +9,8 @@
 支持总开关、四入口开关及脱敏报告导出；保留 v0.2.0 的 SDK／容器多入口互补和运行时 ClassLoader 补挂。
 96 项 JVM／Robolectric 测试、Debug／Release 构建及 Release lint 通过。
 此前 v0.2.0 修复包在 PJD110、QQ 9.3.75 上记录网页和小程序实际命中，用户确认成功；
-**v0.3.0 的 UI、设置共享及上报链路尚未完成真机验收**。支持范围仍受下述限制，不承诺所有设备和热更新时机。
+v0.3.0 原版及当前双风格开发包均已在 PGZ110 上打开管理页，下方按版本分别展示真机效果图；
+**设置修改共享及 QQ 上报／视频交接链路仍未完成本版真机端到端验收**。支持范围仍受下述限制，不承诺所有设备和热更新时机。
 旧 v0.1.0 不含小程序交接，v0.2.0-rc.1 不含本轮运行时补挂修复。
 
 [下载／版本](https://github.com/gretae-King-1122/Handoff/releases) ·
@@ -23,6 +24,54 @@ v0.3.0 已包含此前 0.3.0-dev 的三个管理页，并优化后台读写、�
 点击支持的卡片／链接 → 校验 B 站视频地址 → 请求打开 B 站 → 原有外跳确认 → 视频页
                                       └─ 启动失败 → 放行 QQ 原路径
 ```
+
+## 双风格真机效果图
+
+当前源码提供 **Material 3 Expressive** 与 **Miuix** 两套风格，入口为「设置 → 个性化 → 界面风格」。
+默认 Material，均跟随系统浅色／深色；外观本机保存，切换不需要连接框架或重开 QQ。
+首页展示真实激活状态、LSPosed 信息与版本／设备信息，另有诊断、回归和设置三页。
+
+参照 [SukiSU-Ultra](https://github.com/SukiSU-Ultra/SukiSU-Ultra) 的视觉语言，使用 Java / Android Views
+独立实现，并非复制其 GPL-3.0 源码或接入其 Compose 组件库；参考版本、实现范围见 [设计说明](UI_DESIGN.md)。
+
+以下为 **双风格开发包**于 **2026-10-31** 在 OPPO PGZ110 上的实际截图，不是设计稿或 Robolectric 渲染。
+环境：Android 16 / API 36、QQ 9.3.75 / 16580、LSPosed 2.2.1 / 7912；使用手机当前的浅色模式。
+原图为 1080 × 2412，仅裁去顶部 142px 系统状态栏及底部 48px 手势栏，不修改应用内容。
+
+| Material 3 Expressive | Miuix |
+| :---: | :---: |
+| <img src="assets/screenshots/dual-style/material-home.png" width="280" alt="Material 真机首页：主题色激活卡、真实挂载记录、LSPosed 信息和浮岛导航"> | <img src="assets/screenshots/dual-style/miuix-home.png" width="280" alt="Miuix 真机首页：绿色激活卡、中性分组和常规底栏"> |
+| <img src="assets/screenshots/dual-style/material-settings.png" width="280" alt="Material 真机设置页：界面风格和当前适配策略"> | <img src="assets/screenshots/dual-style/miuix-settings.png" width="280" alt="Miuix 真机设置页：个性化分组和适配管理"> |
+
+截图显示的“已在 QQ 激活”来自框架运行目标列表；4 个入口挂载记录和 0 轮回归均为手机原有真实数据，
+**不代表新版的视频交接已通过端到端验收**。截图过程只切换外观、浏览页面，没有修改交接开关、
+创建回归记录或重启 QQ。该开发包尚未发布为 GitHub Release；上面的 v0.3.0 下载仍是原版三页界面。
+
+<details>
+<summary>更多真机页面：诊断、回归、版本与设备</summary>
+
+| Material 3 Expressive | Miuix |
+| :---: | :---: |
+| <img src="assets/screenshots/dual-style/material-diagnostics.png" width="280" alt="Material 真机诊断页"> | <img src="assets/screenshots/dual-style/miuix-diagnostics.png" width="280" alt="Miuix 真机诊断页"> |
+| <img src="assets/screenshots/dual-style/material-regression.png" width="280" alt="Material 真机回归矩阵：尚无测试轮次"> | <img src="assets/screenshots/dual-style/miuix-regression.png" width="280" alt="Miuix 真机回归矩阵：尚无测试轮次"> |
+| <img src="assets/screenshots/dual-style/material-versions.png" width="280" alt="Material 真机首页滚动后：框架及版本设备信息"> | <img src="assets/screenshots/dual-style/miuix-versions.png" width="280" alt="Miuix 真机首页滚动后：libxposed API、作用域及版本设备信息"> |
+
+</details>
+
+<details>
+<summary>已发布 v0.3.0 原版管理界面（历史真机截图）</summary>
+
+以下三张为同日 OPPO PGZ110 上的 **v0.3.0 正式版**，与上面的双风格开发包区分。
+仅裁去系统状态栏和手势栏，保留实际界面内容。
+
+| 兼容性自检 | 回归矩阵 | 适配管理 |
+| :---: | :---: | :---: |
+| <img src="assets/screenshots/self-check.png" width="260" alt="原版 v0.3.0 真机自检页"> | <img src="assets/screenshots/matrix.png" width="260" alt="原版 v0.3.0 真机回归矩阵页"> | <img src="assets/screenshots/adapters.png" width="260" alt="原版 v0.3.0 真机适配管理页"> |
+
+当时已读取框架、QQ 作用域及开关状态，未修改开关、未重启 QQ，也未进行视频点击回归。
+“等待本版本上报”和空回归矩阵是真实状态，不代表本版视频交接已通过验证。
+
+</details>
 
 ## 支持范围
 
@@ -114,6 +163,27 @@ v0.3.0 提供桌面入口和框架内的模块设置入口；启用模块仍需�
 更新模块后也建议强停并重开 QQ；停用时同样操作。
 
 ## 管理 App
+
+### 开发中：Material 3
+
+当前源码使用 Material Components for Android 的 Material 3 DayNight 主题及真实的工具栏、
+底部导航、卡片、按钮、开关和对话框，跟随系统浅色／深色；保留原有应用图标。
+底部导航采用 64dp 高的紧凑透明悬浮布局，不显示整条底栏的底色、描边或阴影；
+窄屏两侧留白、宽屏居中限宽，保留至少 48dp 触控区；底座独立占位并避让系统栏，
+不叠盖滚动内容，末项信息可完整滚动到导航栏上方。
+选中胶囊同时包住图标与文字，而非只突出图标。
+切页加入短距离上移／淡入和选中项缩放反馈，快速切换或离开页面时安全复位；
+尊重系统关闭动画的设置，初始显示与普通状态刷新不播放切页动画。
+
+- **首页**：集中展示激活状态、LSPosed／兼容框架名称、版本及版本号、libxposed API、QQ 作用域，
+  以及 Handoff／QQ／Android 版本、机型和国内版 B 站安装情况。
+- **激活判定**：只在框架可读、QQ 作用域已授权，且框架运行列表确认 QQ **主进程**加载的模块版本
+  与当前安装版本一致、状态为 `UP_TO_DATE` 时显示“已在 QQ 激活”。框架连接或历史上报不能单独证明激活；
+  API 不支持或读取失败则显示未知，旧版本提示重启 QQ，未运行则等待 QQ 启动。
+- **诊断／回归／适配**：保留类型化信号、脱敏导出、回归矩阵和五项开关；入口信号从首页独立到诊断页。
+  激活状态与交接总开关分开显示，关闭交接不等于模块没有加载。以上源码改动尚未做新版真机验收。
+
+### 已发布 v0.3.0
 
 - **自检**：查看 QQ／Android／框架／作用域、实际运行加载器补挂及四类入口的类型化信号。
   明确区分“已挂载”“已进入”“外跳请求被接受”和实际打开视频；不预填开发设备的成功结果。

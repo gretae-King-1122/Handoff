@@ -1,0 +1,6 @@
+<resources>
+    <item name="action_refresh" type="id" />
+    <item name="dashboard_navigation" type="id" />
+    <item name="appearance_style" type="id" />
+    <item name="home_status" type="id" />
+</resources>

@@ -1,0 +1,25 @@
+<resources>
+    <color name="handoff_primary">#006878</color>
+    <color name="handoff_on_primary">#FFFFFF</color>
+    <color name="handoff_primary_container">#A6EDFF</color>
+    <color name="handoff_on_primary_container">#001F26</color>
+    <color name="handoff_surface">#F1F6F8</color>
+    <color name="handoff_surface_container">#FFFFFF</color>
+    <color name="handoff_on_surface">#171D1F</color>
+    <color name="handoff_on_surface_variant">#3F484C</color>
+    <color name="handoff_outline_variant">#BFC8CD</color>
+    <color name="handoff_warning">#825500</color>
+    <color name="handoff_error">#BA1A1A</color>
+    <bool name="handoff_light_system_bars">true</bool>
+    <color name="miuix_primary">#3478F6</color>
+    <color name="miuix_on_primary">#FFFFFF</color>
+    <color name="miuix_primary_container">#E3EDFF</color>
+    <color name="miuix_on_primary_container">#194B9A</color>
+    <color name="miuix_surface">#F5F5F5</color>
+    <color name="miuix_card">#FFFFFF</color>
+    <color name="miuix_on_surface">#191919</color>
+    <color name="miuix_muted">#646464</color>
+    <color name="miuix_outline">#E2E2E2</color>
+    <color name="miuix_success">#DFF4DE</color>
+    <color name="miuix_on_success">#215229</color>
+</resources>

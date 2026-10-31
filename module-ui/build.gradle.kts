@@ -24,6 +24,7 @@ dependencies {
     api(project(":module-api"))
     implementation(project(":module-storage"))
     implementation(libs.libxposed.service)
+    implementation(libs.material)
     testImplementation(libs.junit4)
     testImplementation(libs.robolectric)
     testImplementation(libs.asm)

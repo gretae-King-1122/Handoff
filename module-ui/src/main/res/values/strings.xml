@@ -1,0 +1,7 @@
+<resources>
+    <string name="nav_home">首页</string>
+    <string name="nav_diagnostics">诊断</string>
+    <string name="nav_regression">回归</string>
+    <string name="nav_settings">设置</string>
+    <string name="refresh_status">刷新状态</string>
+</resources>
