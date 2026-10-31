@@ -20,6 +20,7 @@ final class HealthBridge {
     private final XposedInterface xposed;
     private final boolean main;
     private final String session = UUID.randomUUID().toString();
+    private final long startedAt = System.currentTimeMillis();
     private final ArrayDeque<Pending> pending = new ArrayDeque<>();
     private final ThreadPoolExecutor worker = new ThreadPoolExecutor(1, 1, 20, TimeUnit.SECONDS,
             new ArrayBlockingQueue<>(128), task -> { Thread t = new Thread(task, "Handoff-health"); t.setDaemon(true); return t; },
@@ -65,7 +66,8 @@ final class HealthBridge {
             try {
                 Bundle data = new Bundle();
                 data.putInt("schema", 1); data.putString("session", session);
-                data.putLong("at", message.at()); data.putLong("module", BuildConfig.VERSION_CODE);
+                data.putLong("at", message.at()); data.putLong("startedAt", startedAt);
+                data.putLong("module", BuildConfig.VERSION_CODE);
                 data.putLong("qq", qq); data.putString("qqName", qqName);
                 data.putString("framework", xposed.getFrameworkName() + " " + xposed.getFrameworkVersion());
                 data.putString("kind", message.event().kind().name()); data.putString("entry", message.event().entry().name());

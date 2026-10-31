@@ -60,6 +60,29 @@ public class HealthStorageTest {
         HealthStore.receive(context, next);
         assertEquals(1, HealthStore.evidence(HealthStore.read(context)).size());
     }
+    @Test public void delayedSessionStartCannotReplaceNewerSession() {
+        Bundle current = report("SESSION");
+        HealthStore.receive(context, current);
+        HealthStore.receive(context, report("ACCEPTED"));
+        Bundle stale = report("SESSION"); stale.putString("session", "22222222-2222-2222-2222-222222222222");
+        stale.putLong("at", current.getLong("at") - 1000);
+        HealthStore.receive(context, stale);
+        assertEquals(2, HealthStore.evidence(HealthStore.read(context)).size());
+        assertEquals(SESSION, HealthStore.read(context).optString("session"));
+    }
+    @Test public void repeatedSessionStartDoesNotEraseEvidence() {
+        Bundle start = report("SESSION");
+        HealthStore.receive(context, start); HealthStore.receive(context, report("ACCEPTED"));
+        HealthStore.receive(context, start);
+        assertEquals(2, HealthStore.evidence(HealthStore.read(context)).size());
+    }
+    @Test public void sameSessionCannotChangeItsEnvironment() {
+        HealthStore.receive(context, report("SESSION"));
+        Bundle changed = report("ACCEPTED"); changed.putLong("module", 999);
+        assertThrows(IllegalArgumentException.class, () -> HealthStore.receive(context, changed));
+        assertEquals(5, HealthStore.read(context).optLong("module"));
+        assertEquals(1, HealthStore.evidence(HealthStore.read(context)).size());
+    }
     @Test public void positiveResultRequiresMatchingFreshEvidence() throws Exception {
         RegressionStore.start(context, env);
         assertThrows(IllegalStateException.class, () -> RegressionStore.result(context, env, HealthPolicy.Case.WEB, "PASS"));

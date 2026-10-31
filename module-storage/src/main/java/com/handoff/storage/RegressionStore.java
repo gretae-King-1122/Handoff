@@ -8,11 +8,11 @@ import org.json.JSONObject;
 /** At most 20 explicitly user-created runs; never seeds current device results from developer records. */
 public final class RegressionStore {
     private RegressionStore() { }
-    public static JSONArray read(Context context) {
+    public static synchronized JSONArray read(Context context) {
         try { return new JSONArray(context.getSharedPreferences("handoff_matrix", 0).getString("runs", "[]")); }
         catch (Exception ignored) { return new JSONArray(); }
     }
-    public static void start(Context context, HealthPolicy.Environment env) {
+    public static synchronized void start(Context context, HealthPolicy.Environment env) {
         try {
             JSONArray old = read(context), runs = new JSONArray();
             runs.put(new JSONObject().put("started", System.currentTimeMillis()).put("environment", env.key())
@@ -23,7 +23,7 @@ public final class RegressionStore {
             save(context, runs);
         } catch (Exception error) { throw new IllegalStateException("Cannot start run", error); }
     }
-    public static void result(Context context, HealthPolicy.Environment env, HealthPolicy.Case test, String result) {
+    public static synchronized void result(Context context, HealthPolicy.Environment env, HealthPolicy.Case test, String result) {
         if (!result.matches("PASS|FAIL|SKIP")) throw new IllegalArgumentException("Unknown result");
         try {
             JSONArray runs = read(context);
@@ -41,5 +41,8 @@ public final class RegressionStore {
         if (!context.getSharedPreferences("handoff_matrix", 0).edit().putString("runs", runs.toString()).commit())
             throw new IllegalStateException("Storage unavailable");
     }
-    public static void clear(Context context) { context.getSharedPreferences("handoff_matrix", 0).edit().clear().apply(); }
+    public static synchronized void clear(Context context) {
+        if (!context.getSharedPreferences("handoff_matrix", 0).edit().clear().commit())
+            throw new IllegalStateException("Storage unavailable");
+    }
 }

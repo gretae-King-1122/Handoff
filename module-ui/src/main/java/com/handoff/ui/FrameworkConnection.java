@@ -13,7 +13,14 @@ final class FrameworkConnection {
             @Override public void onServiceDied(XposedService value) { if (service == value) service = null; changed(); }
         });
     }
-    static void observe(Runnable callback) { observer = new WeakReference<>(callback); }
-    private static void changed() { Runnable callback = observer.get(); if (callback != null) callback.run(); }
+    static synchronized void observe(Runnable callback) { observer = new WeakReference<>(callback); }
+    static synchronized void unobserve(Runnable callback) {
+        if (observer.get() == callback) observer.clear();
+    }
+    private static void changed() {
+        Runnable callback;
+        synchronized (FrameworkConnection.class) { callback = observer.get(); }
+        if (callback != null) callback.run();
+    }
     private FrameworkConnection() { }
 }

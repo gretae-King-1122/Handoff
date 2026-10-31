@@ -33,8 +33,11 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 
 /** Native, accessible, offline-first module companion. No root commands or automatic QQ activity starts. */
 public final class DashboardActivity extends Activity {
@@ -43,19 +46,21 @@ public final class DashboardActivity extends Activity {
             CYAN = Color.rgb(67, 195, 223), PINK = Color.rgb(251, 105, 153), AMBER = Color.rgb(244, 194, 112);
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
-    private final Runnable serviceChanged = () -> handler.post(this::refresh);
+    private final Runnable serviceChanged = () -> handler.post(() -> { if (this.resumed) refresh(); });
     private final Runnable tick = new Runnable() { @Override public void run() { refresh(false); handler.postDelayed(this, 4000); } };
     private LinearLayout root, body, nav;
     private ScrollView scroll;
     private int page;
-    private boolean resumed, loading;
+    private boolean resumed;
+    private final RefreshGate refreshGate = new RefreshGate();
     private JSONObject health = new JSONObject();
     private JSONArray runs = new JSONArray();
     private List<HealthPolicy.Evidence> evidence = List.of();
     private long moduleCode, qqCode;
     private String moduleName = "—", qqName = "未安装", framework = "unknown", scope = "未知";
     private boolean frameworkConnected, scoped, biliInstalled;
-    private String snapshot = "";
+    private Map<String, Boolean> settings = Map.of();
+    private boolean settingsReadable;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -85,14 +90,16 @@ public final class DashboardActivity extends Activity {
     }
     @Override protected void onResume() { super.onResume(); resumed = true; handler.post(tick); }
     @Override protected void onPause() { resumed = false; handler.removeCallbacks(tick); super.onPause(); }
-    @Override protected void onDestroy() { handler.removeCallbacksAndMessages(null); worker.shutdownNow(); super.onDestroy(); }
+    @Override protected void onDestroy() {
+        FrameworkConnection.unobserve(serviceChanged);
+        handler.removeCallbacksAndMessages(null); worker.shutdownNow(); super.onDestroy();
+    }
     @Override protected void onSaveInstanceState(Bundle state) { state.putInt("page", page); super.onSaveInstanceState(state); }
 
     private void refresh() { refresh(true); }
     private void refresh(boolean force) {
-        if (loading || isFinishing() || isDestroyed()) return;
-        loading = true;
-        worker.execute(() -> {
+        if (isFinishing() || isDestroyed() || !refreshGate.begin(force)) return;
+        try { worker.execute(() -> {
             JSONObject nextHealth = HealthStore.read(this); JSONArray nextRuns = RegressionStore.read(this);
             PackageInfo own = pkg(getPackageName()), qq = pkg("com.tencent.mobileqq");
             XposedService service = FrameworkConnection.service;
@@ -102,19 +109,30 @@ public final class DashboardActivity extends Activity {
                 allowed = service.getScope().contains("com.tencent.mobileqq"); nextScope = allowed ? "已勾选 QQ" : "未勾选 QQ";
                 connected = true;
             } catch (Throwable ignored) { nextScope = "读取失败"; }
+            Map<String, Boolean> nextSettings = new HashMap<>(); boolean readable = false;
+            if (connected) try {
+                var preferences = service.getRemotePreferences("handoff_settings");
+                nextSettings.put("enabled", preferences.getBoolean("enabled", true));
+                for (var entry : HealthEvent.Entry.values()) if (entry != HealthEvent.Entry.SYSTEM)
+                    nextSettings.put(entry.key, preferences.getBoolean(entry.key, true));
+                readable = true;
+            } catch (Throwable ignored) { nextSettings.clear(); }
+            final boolean canEdit = readable;
             final String f = nextFramework, s = nextScope; final boolean c = connected, a = allowed;
             boolean bili = pkg("tv.danmaku.bili") != null;
             handler.post(() -> {
-                loading = false; if (isDestroyed()) return;
+                if (isDestroyed()) return;
                 health = nextHealth; runs = nextRuns; evidence = HealthStore.evidence(health);
                 moduleCode = code(own); moduleName = own == null ? "—" : own.versionName;
                 qqCode = code(qq); qqName = qq == null ? "未安装" : qq.versionName;
                 framework = f; scope = s; frameworkConnected = c; scoped = a; biliInstalled = bili;
-                String nextSnapshot = health.toString() + runs + moduleCode + moduleName + qqCode + qqName + f + s + c + a + bili;
+                settings = Map.copyOf(nextSettings); settingsReadable = canEdit;
+                String nextSnapshot = health.toString() + runs + moduleCode + moduleName + qqCode + qqName + f + s + c + a + bili
+                        + new java.util.TreeMap<>(settings) + canEdit;
                 // Keep focus, accessibility traversal and scroll stable when polling unchanged data.
-                if (force || !nextSnapshot.equals(snapshot)) { snapshot = nextSnapshot; render(); }
+                if (refreshGate.finish(nextSnapshot)) render();
             });
-        });
+        }); } catch (RejectedExecutionException ignored) { refreshGate.cancel(); }
     }
     private void render() {
         int position = scroll == null ? 0 : scroll.getScrollY();
@@ -183,7 +201,7 @@ public final class DashboardActivity extends Activity {
         add(text("离线保存 · 不读取聊天／链接／视频 ID · 不自动上传\n导出前仍建议核对设备型号、软件版本等环境信息。", 11, MUTED, false), 0, 10);
         action(body, "清除本机诊断记录", () -> new AlertDialog.Builder(this).setTitle("清除诊断记录？")
                 .setMessage("不清理 QQ 数据，也不会清除回归矩阵。QQ 后续事件仍可继续上报。")
-                .setNegativeButton("取消", null).setPositiveButton("清除", (d, w) -> { HealthStore.clear(this); refresh(); }).show(), false);
+                .setNegativeButton("取消", null).setPositiveButton("清除", (d, w) -> mutate(() -> HealthStore.clear(this))).show(), false);
     }
     private void matrix() {
         heading("REGRESSION MATRIX", "把兼容性留下来", "每轮测试绑定 QQ、Android、框架与模块版本。没有记录，就是未验证。");
@@ -192,7 +210,9 @@ public final class DashboardActivity extends Activity {
         spacer(intro, 14); action(intro, "开始新一轮回归", () -> {
             if (qqCode == 0) { toast("请先安装 QQ"); return; }
             new AlertDialog.Builder(this).setTitle("开始新一轮？").setMessage("保留历史记录，新的四项测试初始均为未验证。正向通过必须有本轮实际交接信号，并由你确认结果。")
-                    .setNegativeButton("取消", null).setPositiveButton("开始", (d, w) -> { RegressionStore.start(this, environment()); refresh(); }).show();
+                    .setNegativeButton("取消", null).setPositiveButton("开始", (d, w) -> {
+                        var env = environment(); mutate(() -> RegressionStore.start(this, env));
+                    }).show();
         }, true); add(intro, 0, 16);
         JSONObject run = runs.optJSONObject(0);
         if (run != null) {
@@ -225,7 +245,7 @@ public final class DashboardActivity extends Activity {
         }
         action(body, "导出矩阵与诊断", this::share, false);
         action(body, "清除回归矩阵", () -> new AlertDialog.Builder(this).setTitle("清除全部回归轮次？")
-                .setNegativeButton("取消", null).setPositiveButton("清除", (d,w) -> { RegressionStore.clear(this); refresh(); }).show(), false);
+                .setNegativeButton("取消", null).setPositiveButton("清除", (d,w) -> mutate(() -> RegressionStore.clear(this))).show(), false);
     }
     private void adapters() {
         heading("ADAPTERS", "适配有据可查", "内置版本档案 + 严格签名探测，不下载执行远程代码。");
@@ -234,7 +254,8 @@ public final class DashboardActivity extends Activity {
         selected.addView(text(profile.title(), 20, TEXT, true)); spacer(selected, 8); selected.addView(text(profile.evidence(), 12, MUTED, false));
         spacer(selected, 12); selected.addView(text("实际挂载和交接结果请看「自检」，版本命中不代表当前设备可用。", 12, AMBER, false)); add(selected, 0, 16);
         LinearLayout options = card(); options.addView(text("入口开关", 16, TEXT, true)); spacer(options, 6);
-        options.addView(text(frameworkConnected ? "通过框架共享设置。修改后强停重开 QQ，确保当前进程应用设置。" : "框架未连接，开关只读；不会伪装成已修改。", 12, MUTED, false));
+        options.addView(text(settingsReadable ? "通过框架共享设置。修改后强停重开 QQ，确保当前进程应用设置。"
+                : frameworkConnected ? "框架已连接，但设置读取失败；开关只读，当前值未知。" : "框架未连接，开关只读；不会伪装成已修改。", 12, MUTED, false));
         toggle(options, "交接总开关", "enabled");
         for (var entry : HealthEvent.Entry.values()) if (entry != HealthEvent.Entry.SYSTEM) toggle(options, entry.title, entry.key);
         add(options, 0, 16);
@@ -252,10 +273,7 @@ public final class DashboardActivity extends Activity {
     private void toggle(LinearLayout parent, String title, String key) {
         Switch control = new Switch(this); control.setText(title); control.setTextColor(TEXT); control.setTextSize(14);
         control.setPadding(0, dp(10), 0, dp(10)); control.setMinHeight(dp(48));
-        boolean value = true, editable = frameworkConnected;
-        try { if (editable) value = FrameworkConnection.service.getRemotePreferences("handoff_settings").getBoolean(key, true); }
-        catch (Throwable ignored) { editable = false; }
-        control.setChecked(value); control.setEnabled(editable);
+        control.setChecked(settings.getOrDefault(key, true)); control.setEnabled(settingsReadable);
         control.setOnCheckedChangeListener((button, checked) -> {
             control.setEnabled(false);
             worker.execute(() -> {
@@ -281,10 +299,23 @@ public final class DashboardActivity extends Activity {
         else saveResult(test, result);
     }
     private void saveResult(HealthPolicy.Case test, String result) {
-        try { RegressionStore.result(this, environment(), test, result); refresh(); }
-        catch (IllegalStateException error) { new AlertDialog.Builder(this).setTitle("不能记为通过")
-                .setMessage("没有本轮、同模块及 QQ 版本的匹配交接记录，或环境已经变化。请重开 QQ 执行测试后刷新；也可以记为未通过或跳过。")
-                .setPositiveButton("知道了", null).show(); }
+        var env = environment();
+        mutate(() -> RegressionStore.result(this, env, test, result));
+    }
+    private void mutate(Runnable action) {
+        if (isDestroyed() || isFinishing()) return;
+        try { worker.execute(() -> {
+            boolean saved;
+            try { action.run(); saved = true; } catch (RuntimeException ignored) { saved = false; }
+            boolean success = saved;
+            handler.post(() -> {
+                if (isDestroyed() || isFinishing()) return;
+                if (!success) new AlertDialog.Builder(this).setTitle("未保存")
+                        .setMessage("存储不可用、测试环境已变化，或缺少本轮匹配交接证据。请检查后重试；正向通过需要实际交接记录。")
+                        .setPositiveButton("知道了", null).show();
+                refresh();
+            });
+        }); } catch (RejectedExecutionException ignored) { }
     }
     private void share() {
         try {
@@ -311,7 +342,12 @@ public final class DashboardActivity extends Activity {
     }
     private PackageInfo pkg(String name) { try { return getPackageManager().getPackageInfo(name, 0); } catch (Exception ignored) { return null; } }
     private long code(PackageInfo info) { return info == null ? 0 : Build.VERSION.SDK_INT >= 28 ? info.getLongVersionCode() : info.versionCode; }
-    private void openQq() { Intent intent = getPackageManager().getLaunchIntentForPackage("com.tencent.mobileqq"); if (intent == null) toast("无法启动 QQ"); else startActivity(intent); }
+    private void openQq() {
+        try {
+            Intent intent = getPackageManager().getLaunchIntentForPackage("com.tencent.mobileqq");
+            if (intent == null) toast("无法启动 QQ"); else startActivity(intent);
+        } catch (RuntimeException ignored) { toast("QQ 启动失败，请手动打开"); }
+    }
     private String resultLabel(String result) { return switch(result) { case "PASS" -> "已确认通过"; case "FAIL" -> "未通过"; case "SKIP" -> "已跳过"; default -> "未验证"; }; }
     private String kind(HealthEvent.Kind kind) { return switch(kind) {
         case SESSION -> "QQ 主进程开始上报"; case LOADER_BOUND -> "已按运行时加载器补挂";

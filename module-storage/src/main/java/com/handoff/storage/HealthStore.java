@@ -24,15 +24,27 @@ public final class HealthStore {
             var entry = HealthEvent.Entry.valueOf(input.getString("entry", ""));
             var reason = HealthEvent.Reason.valueOf(input.getString("reason", ""));
             String session = input.getString("session", "");
-            if (!session.matches("[0-9a-f-]{36}")) throw new IllegalArgumentException("Invalid session");
+            if (!session.matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"))
+                throw new IllegalArgumentException("Invalid session");
             long module = input.getLong("module"), qq = input.getLong("qq");
             if (module <= 0 || qq < 0) throw new IllegalArgumentException("Invalid version");
-            JSONObject state = read(context);
-            if (kind == HealthEvent.Kind.SESSION) state = new JSONObject();
-            else if (state.has("session") && !session.equals(state.optString("session"))) return;
             long now = System.currentTimeMillis();
             long occurred = input.getLong("at");
             if (occurred <= 0 || occurred > now + 5000) throw new IllegalArgumentException("Invalid event time");
+            JSONObject state = read(context);
+            long started = input.getLong("startedAt", kind == HealthEvent.Kind.SESSION ? occurred : state.optLong("started", occurred));
+            if (started <= 0 || started > occurred) throw new IllegalArgumentException("Invalid session time");
+            if (kind == HealthEvent.Kind.SESSION) {
+                if (session.equals(state.optString("session"))) return; // Duplicate start is idempotent.
+                if (started < state.optLong("started", state.optLong("at"))) return; // Delayed old process.
+                state = new JSONObject();
+            } else if (state.has("session")) {
+                if (!session.equals(state.optString("session"))) return;
+                if (module != state.optLong("module") || qq != state.optLong("qq")
+                        || !HealthPolicy.safe(input.getString("framework")).equals(state.optString("framework")))
+                    throw new IllegalArgumentException("Session environment changed");
+            }
+            state.put("started", started);
             state.put("session", session).put("module", module).put("qq", qq).put("at", occurred)
                     .put("framework", HealthPolicy.safe(input.getString("framework")))
                     .put("qqName", HealthPolicy.safe(input.getString("qqName")));
@@ -62,5 +74,8 @@ public final class HealthStore {
         }
         return List.copyOf(result);
     }
-    public static synchronized void clear(Context context) { context.getSharedPreferences(PREFS, 0).edit().clear().commit(); }
+    public static synchronized void clear(Context context) {
+        if (!context.getSharedPreferences(PREFS, 0).edit().clear().commit())
+            throw new IllegalStateException("Storage unavailable");
+    }
 }
