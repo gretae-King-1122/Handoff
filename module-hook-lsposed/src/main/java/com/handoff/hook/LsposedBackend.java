@@ -29,6 +29,7 @@ public final class LsposedBackend implements HookBackend {
         default void applicationReady(Application app) { }
         default void event(HealthEvent event) { }
         default boolean enabled(HealthEvent.Entry entry) { return true; }
+        default boolean dynamicNetworkEnabled() { return false; }
         default QqAdapters.Profile profile() { return QqAdapters.resolve(-1); }
     }
 

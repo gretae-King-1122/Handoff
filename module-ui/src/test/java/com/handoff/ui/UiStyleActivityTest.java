@@ -110,6 +110,25 @@ public class UiStyleActivityTest {
             assertFalse(ReflectionHelpers.getField(activity, "styleSaving")); assertEquals(UiStyle.MATERIAL, new UiStyleStore(activity).read());
         }
     }
+    @Test public void dynamicAndNetworkSettingsRemainIndependentInBothStyles() {
+        for (UiStyle style : UiStyle.values()) {
+            new UiStyleStore(RuntimeEnvironment.getApplication()).write(style);
+            try (var controller = Robolectric.buildActivity(DashboardActivity.class).create()) {
+                var activity = controller.get();
+                ((DashboardNavigation) activity.findViewById(R.id.dashboard_navigation)).setSelectedItemId(R.id.nav_settings);
+                for (boolean dynamic : new boolean[]{false, true}) for (boolean network : new boolean[]{false, true}) {
+                    ReflectionHelpers.setField(activity, "settings", java.util.Map.of("enabled", true,
+                            "dynamic", dynamic, "dynamic_network", network, "douyin", true, "kuaishou", false));
+                    ReflectionHelpers.callInstanceMethod(activity, "render");
+                    View root = activity.getWindow().getDecorView();
+                    assertEquals(dynamic, ((com.google.android.material.materialswitch.MaterialSwitch) find(root, "动态链接交接（试验）")).isChecked());
+                    assertEquals(network, ((com.google.android.material.materialswitch.MaterialSwitch) find(root, "动态短链联网展开（可选）")).isChecked());
+                    assertTrue(((com.google.android.material.materialswitch.MaterialSwitch) find(root, "抖音链接（试验）")).isChecked());
+                    assertFalse(((com.google.android.material.materialswitch.MaterialSwitch) find(root, "快手链接（试验）")).isChecked());
+                }
+            }
+        }
+    }
     @Test public void failedAppearanceWriteLeavesCurrentStyleIntact() throws Exception {
         try (var controller = Robolectric.buildActivity(DashboardActivity.class).create()) {
             var activity = controller.get();

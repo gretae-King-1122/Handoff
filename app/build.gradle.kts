@@ -33,8 +33,8 @@ android {
         applicationId = "com.handoff.module"
         minSdk = 26
         targetSdk = 37
-        versionCode = 10
-        versionName = "0.6.0"
+        versionCode = 11
+        versionName = "0.7.0-dev"
         buildConfigField("boolean", "HANDOFF_DIAGNOSTICS", handoffDiagnostics.get().toString())
         buildConfigField("boolean", "HANDOFF_BOUNDARY_DIAGNOSTICS", handoffBoundaryDiagnostics.get().toString())
     }
@@ -77,6 +77,8 @@ android {
     packaging {
         resources {
             merges += "META-INF/xposed/*"
+            // Preserve OkHttp's runtime PSL data despite the existing metadata/resource exclusion.
+            merges += "okhttp3/internal/publicsuffix/publicsuffixes.gz"
             excludes += "**"
         }
     }

@@ -52,6 +52,7 @@ final class PipelineImpl {
             @Override public void applicationReady(android.app.Application app) { health.bind(app); }
             @Override public void event(com.handoff.api.health.HealthEvent event) { health.event(event); }
             @Override public boolean enabled(com.handoff.api.health.HealthEvent.Entry entry) { return health.enabled(entry); }
+            @Override public boolean dynamicNetworkEnabled() { return health.dynamicNetworkEnabled(); }
             @Override public com.handoff.api.health.QqAdapters.Profile profile() { return health.profile(); }
             @Override
             public void info(String message) {

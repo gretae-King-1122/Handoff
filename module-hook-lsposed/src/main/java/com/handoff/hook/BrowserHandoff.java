@@ -15,6 +15,7 @@ import com.handoff.api.health.HealthEvent;
 import com.handoff.api.links.ParsedLink;
 import com.handoff.executor.DouyinLauncher;
 import com.handoff.executor.KuaishouLauncher;
+import com.handoff.executor.DynamicLauncher;
 
 import io.github.libxposed.api.XposedInterface;
 
@@ -41,6 +42,7 @@ final class BrowserHandoff {
             HealthReports.emit(reporter, HealthEvent.Kind.INSTALL_FAILED, HealthEvent.Entry.BROWSER, HealthEvent.Reason.SIGNATURE);
             HealthReports.emit(reporter, HealthEvent.Kind.INSTALL_FAILED, HealthEvent.Entry.DOUYIN, HealthEvent.Reason.SIGNATURE);
             HealthReports.emit(reporter, HealthEvent.Kind.INSTALL_FAILED, HealthEvent.Entry.KUAISHOU, HealthEvent.Reason.SIGNATURE);
+            HealthReports.emit(reporter, HealthEvent.Kind.INSTALL_FAILED, HealthEvent.Entry.DYNAMIC, HealthEvent.Reason.SIGNATURE);
             return;
         }
         int installed = 0;
@@ -97,7 +99,25 @@ final class BrowserHandoff {
                                 }
                                 String id = BrowserDispatch.videoId(self.getClass().getName(),
                                         target.getPackageName(), target.getClassName(), url, reporter.profile().contract());
-                                if (id == null) return false;
+                                if (id == null) {
+                                    String dynamic = DynamicBrowserDispatch.parse(self.getClass().getName(),
+                                            target.getPackageName(), target.getClassName(), url, reporter.profile().contract());
+                                    if (dynamic == null || ((Activity) self).isDestroyed() || ((Activity) self).isFinishing()
+                                            || outgoing.getSelector() != null
+                                            || (outgoing.getFlags() & Intent.FLAG_ACTIVITY_FORWARD_RESULT) != 0) return false;
+                                    return DynamicHandoff.redirect(completion -> DynamicLauncher.resolve(
+                                            (Activity) self, dynamic, outgoing, reporter.dynamicNetworkEnabled(),
+                                            new ResultReceiver(new Handler(Looper.getMainLooper())) {
+                                                @Override protected void onReceiveResult(int code, Bundle data) {
+                                                    completion.complete(switch (code) {
+                                                        case DynamicLauncher.STARTED -> DynamicHandoff.Result.ACCEPTED;
+                                                        case DynamicLauncher.CANCELLED -> DynamicHandoff.Result.CANCELLED;
+                                                        case DynamicLauncher.FALLBACK_FAILED -> DynamicHandoff.Result.FALLBACK_FAILED;
+                                                        default -> DynamicHandoff.Result.FAILED;
+                                                    });
+                                                }
+                                            }), reporter);
+                                }
                                 HealthReports.emit(reporter, HealthEvent.Kind.ENTERED, HealthEvent.Entry.BROWSER);
                                 if (!HealthReports.enabled(reporter, HealthEvent.Entry.BROWSER)) return false;
                                 long matched = SystemClock.elapsedRealtimeNanos();
@@ -122,11 +142,13 @@ final class BrowserHandoff {
                 HealthReports.emit(reporter, HealthEvent.Kind.INSTALLED, HealthEvent.Entry.BROWSER);
                 HealthReports.emit(reporter, HealthEvent.Kind.INSTALLED, HealthEvent.Entry.DOUYIN);
                 HealthReports.emit(reporter, HealthEvent.Kind.INSTALLED, HealthEvent.Entry.KUAISHOU);
+                HealthReports.emit(reporter, HealthEvent.Kind.INSTALLED, HealthEvent.Entry.DYNAMIC);
             } catch (Throwable t) {
                 warn(reporter, "HANDOFF startActivity/" + signature.length + " 挂载失败", t);
                 HealthReports.emit(reporter, HealthEvent.Kind.INSTALL_FAILED, HealthEvent.Entry.BROWSER, HealthEvent.Reason.SIGNATURE);
                 HealthReports.emit(reporter, HealthEvent.Kind.INSTALL_FAILED, HealthEvent.Entry.DOUYIN, HealthEvent.Reason.SIGNATURE);
                 HealthReports.emit(reporter, HealthEvent.Kind.INSTALL_FAILED, HealthEvent.Entry.KUAISHOU, HealthEvent.Reason.SIGNATURE);
+                HealthReports.emit(reporter, HealthEvent.Kind.INSTALL_FAILED, HealthEvent.Entry.DYNAMIC, HealthEvent.Reason.SIGNATURE);
             }
         }
         if (installed == 0) warn(reporter, "HANDOFF 没有可用派发点，保留 QQ 原行为", null);

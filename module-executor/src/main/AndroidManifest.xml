@@ -1,6 +1,21 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="http" />
+        </intent>
+    </queries>
     <application>
+        <activity android:name="com.handoff.executor.DynamicResolveActivity"
+            android:exported="true" android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar" />
         <!-- Explicit QQ handoff only; immutable QQ-created fallback capability required before I/O. -->
         <activity android:name="com.handoff.executor.KuaishouResolveActivity"
             android:exported="true" android:excludeFromRecents="true"

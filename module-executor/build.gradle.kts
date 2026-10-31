@@ -23,6 +23,7 @@ android {
 dependencies {
     api(project(":module-api"))
     implementation(project(":module-rules"))
+    implementation(libs.okhttp)
     testImplementation(libs.junit4)
     testImplementation(libs.robolectric)
     // Match the existing UI test runtime; older transitive ASM cannot read the local JDK 26 classes.

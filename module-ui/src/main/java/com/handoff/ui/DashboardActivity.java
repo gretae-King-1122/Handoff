@@ -167,6 +167,7 @@ public final class DashboardActivity extends AppCompatActivity {
             if (snapshot.connected()) try {
                 var preferences = service.getRemotePreferences("handoff_settings");
                 nextSettings.put("enabled", preferences.getBoolean("enabled", true));
+                nextSettings.put("dynamic_network", preferences.getBoolean("dynamic_network", false));
                 for (var entry : HealthEvent.Entry.values()) if (entry != HealthEvent.Entry.SYSTEM)
                     nextSettings.put(entry.key, preferences.getBoolean(entry.key, entry.defaultEnabled()));
                 readable = true;
@@ -263,11 +264,14 @@ public final class DashboardActivity extends AppCompatActivity {
         else if (!current()) { headline = "等待本版本上报"; description = "强停重开 QQ；旧模块或旧 QQ 环境的记录不用于当前判断。"; }
         else if (last != null) {
             switch (last.event().kind()) {
-                case ACCEPTED -> { headline = "已记录视频交接"; description = "外跳请求已被接受；不代表用户已确认或视频已加载。"; }
+                case ACCEPTED -> { headline = last.event().entry() == HealthEvent.Entry.DYNAMIC ? "已记录链接交接" : "已记录视频交接";
+                    description = "外跳请求已被接受；不代表用户已确认或对应内容已加载。"; }
                 case LAUNCH_FAILED -> { headline = "外跳请求未成功";
-                    description = last.event().entry() == HealthEvent.Entry.KUAISHOU ? last.event().reason().title
+                    description = last.event().entry() == HealthEvent.Entry.KUAISHOU
+                            || last.event().entry() == HealthEvent.Entry.DYNAMIC ? last.event().reason().title
                             : "已保留 QQ 原流程。请检查国内版 B 站是否可用。"; accent = PINK; }
                 case PASSED -> { headline = last.event().reason() == HealthEvent.Reason.KUAISHOU_CANCELLED
+                            || last.event().reason() == HealthEvent.Reason.DYNAMIC_CANCELLED
                             ? "已取消短链解析" : "本次保留 QQ 原流程";
                     description = last.event().reason().title; accent = AMBER; }
                 case ENTERED -> { headline = "入口已进入，待确认结果"; description = "入口进入本身不算交接成功。"; }
@@ -389,6 +393,8 @@ public final class DashboardActivity extends AppCompatActivity {
         toggle(options, "交接总开关", "enabled");
         for (var entry : HealthEvent.Entry.values()) if (entry != HealthEvent.Entry.SYSTEM)
             toggle(options, entry.title, entry.key, entry.defaultEnabled());
+        toggle(options, "动态短链联网展开（可选）", "dynamic_network", false);
+        spacer(options, 8); options.addView(text("动态交接默认关闭：依据已安装 App 的链接声明寻找目标，排除通用浏览器；多个目标或域名未经系统验证／用户授权时询问。B 站／抖音／快手仍走原有独立开关。联网展开也默认关闭，需同时开启动态交接；开启后，无匹配 App 的 HTTPS 链接会被模块请求以检查跳转（原站可看到 IP 和分享参数），最多 3 次，不解析网页或脚本。无匹配或失败返回 QQ；不保证所有平台均可打开对应内容。", 12, MUTED, false));
         spacer(options, 8); options.addView(text("抖音／快手试验默认关闭，开关相互独立。不猜作品 ID、不降级到首页。抖音短链交由抖音处理；快手支持作品长链及 v.kuaishou.com 短链，短链在模块后台联网解析，失败返回 QQ 浏览器，可按返回键取消。请求被接受不代表已打开作品。", 12, MUTED, false));
         add(options, 0, 16);
         for (var item : QqAdapters.profiles()) {
@@ -459,7 +465,8 @@ public final class DashboardActivity extends AppCompatActivity {
     private void mark(HealthPolicy.Case test, String result) {
         if ("PASS".equals(result)) new MaterialAlertDialogBuilder(this).setTitle("确认「" + test.title + "」通过？")
                 .setMessage(test.needsEvidence ? "请确认实际进入" + (test == HealthPolicy.Case.DOUYIN ? "抖音对应作品"
-                        : test == HealthPolicy.Case.KUAISHOU ? "快手对应作品" : " B 站") + "且未并行打开 QQ 内容。模块交接信号不能代替你的页面确认。" : "这是一条手动确认记录，不代表模块自动验证了负向结果。")
+                        : test == HealthPolicy.Case.KUAISHOU ? "快手对应作品"
+                        : test == HealthPolicy.Case.DYNAMIC ? "目标 App 对应内容" : " B 站") + "且未并行打开 QQ 内容。模块交接信号不能代替你的页面确认。" : "这是一条手动确认记录，不代表模块自动验证了负向结果。")
                 .setNegativeButton("取消", null).setPositiveButton("确认", (d,w) -> saveResult(test, result)).show();
         else saveResult(test, result);
     }

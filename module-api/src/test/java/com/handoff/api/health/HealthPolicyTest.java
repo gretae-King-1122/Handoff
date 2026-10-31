@@ -58,7 +58,17 @@ class HealthPolicyTest {
     }
     @Test void douyinPilotIsOptInWithoutChangingExistingDefaults() {
         for (var entry : HealthEvent.Entry.values())
-            assertEquals(entry != HealthEvent.Entry.DOUYIN && entry != HealthEvent.Entry.KUAISHOU, entry.defaultEnabled());
+            assertEquals(entry != HealthEvent.Entry.DOUYIN && entry != HealthEvent.Entry.KUAISHOU
+                    && entry != HealthEvent.Entry.DYNAMIC, entry.defaultEnabled());
+    }
+    @Test void dynamicEvidenceCannotValidateExistingPlatformOrViceVersa() {
+        var signal = event(101, 5, 16580, HealthEvent.Kind.ACCEPTED, HealthEvent.Entry.DYNAMIC);
+        assertTrue(HealthPolicy.mayConfirm(HealthPolicy.Case.DYNAMIC, 100, environment, List.of(signal)));
+        for (var entry : HealthEvent.Entry.values()) if (entry != HealthEvent.Entry.DYNAMIC)
+            assertFalse(HealthPolicy.mayConfirm(HealthPolicy.Case.DYNAMIC, 100, environment,
+                    List.of(event(101, 5, 16580, HealthEvent.Kind.ACCEPTED, entry))));
+        for (var test : List.of(HealthPolicy.Case.WEB, HealthPolicy.Case.MINI, HealthPolicy.Case.DOUYIN, HealthPolicy.Case.KUAISHOU))
+            assertFalse(HealthPolicy.mayConfirm(test, 100, environment, List.of(signal)));
     }
     @Test void douyinAndBilibiliEvidenceCannotValidateEachOther() {
         var douyin = event(101, 5, 16580, HealthEvent.Kind.ACCEPTED, HealthEvent.Entry.DOUYIN);

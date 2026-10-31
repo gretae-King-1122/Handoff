@@ -61,6 +61,13 @@ final class HealthBridge {
             throw new IllegalStateException("Settings unavailable");
         }
     }
+    boolean dynamicNetworkEnabled() {
+        try {
+            if (settings == null) settings = xposed.getRemotePreferences("handoff_settings");
+            return settings.getBoolean("enabled", true) && settings.getBoolean("dynamic", false)
+                    && settings.getBoolean("dynamic_network", false);
+        } catch (Throwable ignored) { return false; }
+    }
     private void send(Pending message) {
         worker.execute(() -> {
             try {

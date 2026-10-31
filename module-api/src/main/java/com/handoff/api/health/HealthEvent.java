@@ -6,12 +6,13 @@ public record HealthEvent(Kind kind, Entry entry, Reason reason) {
     public enum Entry {
         SYSTEM("系统", "system"), BROWSER("网页跳板", "browser"), SDK("小程序 SDK", "sdk"),
         SERVICE("小程序服务", "service"), CONTAINER("容器兜底", "container"),
-        DOUYIN("抖音链接（试验）", "douyin"), KUAISHOU("快手链接（试验）", "kuaishou");
+        DOUYIN("抖音链接（试验）", "douyin"), KUAISHOU("快手链接（试验）", "kuaishou"),
+        DYNAMIC("动态链接交接（试验）", "dynamic");
         public final String title;
         public final String key;
         Entry(String title, String key) { this.title = title; this.key = key; }
         /** The new pilot is opt-in; existing entries retain their original defaults. */
-        public boolean defaultEnabled() { return this != DOUYIN && this != KUAISHOU; }
+        public boolean defaultEnabled() { return this != DOUYIN && this != KUAISHOU && this != DYNAMIC; }
     }
     public enum Reason {
         NONE("无"), DISABLED("该入口已关闭"), CONFIG_UNAVAILABLE("设置不可读取，保守放行"),
@@ -23,6 +24,10 @@ public record HealthEvent(Kind kind, Entry entry, Reason reason) {
         KUAISHOU_RESOLVE_FAILED("快手短链解析或启动失败，已返回 QQ 浏览器"),
         KUAISHOU_CANCELLED("用户取消快手短链解析"),
         KUAISHOU_FALLBACK_FAILED("快手短链交接失败，QQ 浏览器回退也未成功"),
+        DYNAMIC_START_FAILED("动态交接页未能启动，保留 QQ 流程"),
+        DYNAMIC_RESOLVE_FAILED("未找到唯一目标或解析／启动失败，已返回 QQ 浏览器"),
+        DYNAMIC_CANCELLED("用户取消动态链接交接"),
+        DYNAMIC_FALLBACK_FAILED("动态交接失败，QQ 浏览器回退也未成功"),
         SIGNATURE("目标签名无法挂载");
         public final String title;
         Reason(String title) { this.title = title; }
