@@ -30,7 +30,8 @@ record FrameworkSnapshot(boolean connected, String name, String version, long ve
             public List<String> scope() { return service.getScope(); }
             public List<Target> targets() {
                 return service.getRunningTargets().stream().map(t ->
-                        new Target(t.getProcessName(), t.getLoadedVersionCode(), t.getState())).toList();
+                        new Target(t.getProcessName(), t.getLoadedVersionCode(), t.getState()))
+                        .collect(java.util.stream.Collectors.toList());
             }
         }, moduleCode);
     }

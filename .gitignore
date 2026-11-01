@@ -55,3 +55,4 @@ scratch/
 .vscode/
 *.swp
 *~
+.local/

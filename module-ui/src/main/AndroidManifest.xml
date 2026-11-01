@@ -1,4 +1,8 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <!-- The optional liquid pipeline is instantiated only on API 33+. Android 8–12
+         retains the Haze/standard navigation path and never creates blur objects. -->
+    <uses-sdk tools:overrideLibrary="top.yukonga.miuix.kmp.blur" />
     <queries>
         <package android:name="com.tencent.mobileqq" />
         <package android:name="tv.danmaku.bili" />
