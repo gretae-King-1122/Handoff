@@ -56,7 +56,7 @@ private const val PROJECT_URL = "https://github.com/gretae-King-1122/Handoff"
         Panel {
             SectionTitle("开源与致谢")
             QuietText("液态玻璃底栏源自 SukiSU-Ultra，并保留 AndroidLiquidGlass 与 compose-miuix-ui 的来源声明。")
-            QuietText("本开发版组合应用遵循 GPL-3.0；原项目文件保留 Apache-2.0 许可。完整许可文本随安装包提供。")
+            QuietText("本组合应用遵循 GPL-3.0；原项目文件保留 Apache-2.0 许可。完整许可文本随安装包提供，对应源码见 GitHub 同版本发行页。")
             TextButton({ openLink("https://github.com/SukiSU-Ultra/SukiSU-Ultra") }, Modifier.testTag("about-sukisu")) {
                 Text("查看 SukiSU-Ultra")
             }

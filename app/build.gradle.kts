@@ -33,8 +33,8 @@ android {
         applicationId = "com.handoff.module"
         minSdk = 26
         targetSdk = 37
-        versionCode = 10
-        versionName = "0.6.0"
+        versionCode = 13
+        versionName = "0.8.0"
         buildConfigField("boolean", "HANDOFF_DIAGNOSTICS", handoffDiagnostics.get().toString())
         buildConfigField("boolean", "HANDOFF_BOUNDARY_DIAGNOSTICS", handoffBoundaryDiagnostics.get().toString())
     }

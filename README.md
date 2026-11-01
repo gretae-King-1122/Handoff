@@ -7,7 +7,7 @@
     <a href="https://github.com/gretae-King-1122/Handoff/releases/latest"><img src="https://img.shields.io/github/v/release/gretae-King-1122/Handoff?label=Release&amp;logo=github&amp;color=008597" alt="Latest release" /></a>
     <a href="#环境要求"><img src="https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&amp;logoColor=white" alt="Android 8.0+ 编译下限" /></a>
     <a href="#环境要求"><img src="https://img.shields.io/badge/LSPosed-API%20102-7258F5" alt="LSPosed / libxposed API 102" /></a>
-    <a href="LICENSING.md"><img src="https://img.shields.io/badge/Development_build-GPL--3.0-F59E0B" alt="Development build: GPL-3.0 combination; original files Apache-2.0" /></a>
+    <a href="LICENSING.md"><img src="https://img.shields.io/badge/Combined_app-GPL--3.0-F59E0B" alt="GPL-3.0 combination; original files Apache-2.0" /></a>
   </p>
   <p>
     <a href="https://github.com/gretae-King-1122/Handoff/releases/latest">下载正式版</a> ·
@@ -25,12 +25,14 @@ Handoff 是一个轻量 LSPosed 模块。点击 QQ 中支持的视频卡片或�
 | 能力 | 说明 |
 | --- | --- |
 | 视频交接 | 浏览器／小程序多入口互补，按实际 ClassLoader 补挂 |
-| 双风格界面 | 本地开发版采用 Compose Material 3，保留 Miuix 外观选项，跟随系统浅色／深色 |
+| 双风格界面 | Compose Material 3 与 Miuix 两套组件，跟随系统浅色／深色 |
 | 状态与诊断 | 展示真实激活状态、框架信息与入口信号，支持脱敏导出 |
 | 回归与设置 | 绑定环境记录测试结果，提供总开关和六类入口开关 |
 
-**当前正式版：[v0.6.0](https://github.com/gretae-King-1122/Handoff/releases/tag/v0.6.0)。**
-210 项 JVM／Robolectric 测试、Debug／Release 构建及 lint 检查通过。
+**当前正式版：[v0.8.0](https://github.com/gretae-King-1122/Handoff/releases/tag/v0.8.0)。**
+216 项 JVM／Robolectric 测试、Debug／Release 构建及应用／UI 模块 Release lint 检查通过。
+
+> v0.8.0 仅发布 `main` 的 Compose 新界面与原有 B 站／抖音／快手交接功能，**不包含** `dynamic-link-handoff` 分支的动态适配及 Hook 性能修复。从 v0.7.1-dev 升级后，这些试验功能不再提供；原有平台开关和数据保留。
 
 > 正式发布不等于所有设备、QQ 版本或热更新时机均已验证；本次正式版本号 APK 未额外装机回归，开发包的用户确认范围见下。
 
@@ -38,11 +40,11 @@ Handoff 是一个轻量 LSPosed 模块。点击 QQ 中支持的视频卡片或�
 > 用户已确认当前设备的抖音、快手作品长链及 `v.kuaishou.com` 短链可进入对应作品；短链后台解析失败时返回 QQ 浏览器。上述真机确认来自同源开发包，不代表所有设备均兼容。
 > [抖音说明 →](DOUYIN_PILOT.md) · [快手范围与验收 →](KUAISHOU_PILOT.md)
 
-## Compose 开发版预览
+## Compose 界面预览
 
-当前工作区采用 **Jetpack Compose + Material 3 / Miuix** 两套组件：Material 底栏直接接入 SukiSU-Ultra 的液态玻璃分支，包括背景模糊、透镜折射、边缘高光及可拖动的弹性指示器；Miuix 接入同款 0.9.4 组件库的导航、卡片、开关和按钮，采用灰底分组列表。完整光学效果要求 Android 13+ 硬件加速；旧系统、软件绘制和减少动效保留降级路径。此改版尚未发布到 Releases。
+v0.8.0 采用 **Jetpack Compose + Material 3 / Miuix** 两套组件：Material 底栏直接接入 SukiSU-Ultra 的液态玻璃分支，包括背景模糊、透镜折射、边缘高光及可拖动的弹性指示器；Miuix 接入同款 0.9.4 组件库的导航、卡片、开关和按钮，采用灰底分组列表。完整光学效果要求 Android 13+ 硬件加速；旧系统、软件绘制和减少动效保留降级路径。
 
-本地开发版包含 GPL-3.0 底栏源码；组合应用分发须遵循 GPL-3.0，原 Apache-2.0 文件保留许可。来源、改动及完整许可见 [LICENSING.md](LICENSING.md)。
+本版本包含 GPL-3.0 底栏源码；组合应用按 GPL-3.0 分发，原 Apache-2.0 文件保留许可。发行页提供与 APK 匹配的完整项目源码包。来源、改动及完整许可见 [LICENSING.md](LICENSING.md)。
 
 ![Compose 四页离线预览](assets/screenshots/compose/pages.png)
 
@@ -272,7 +274,7 @@ Windows 中文工作目录下若测试 worker 报已编译测试类找不到，�
 
 ## License
 
-[Apache-2.0](LICENSE) © 2026 Handoff Project Contributors
+v0.8.0 组合应用：[GPL-3.0](LICENSES/GPL-3.0.txt)。原有 Handoff 文件保留 [Apache-2.0](LICENSE) © 2026 Handoff Project Contributors；历史 Apache-only 发行版许可不变。完整说明见 [LICENSING.md](LICENSING.md)。
 
 ## 免责
 

@@ -1,4 +1,4 @@
-Handoff development build
+Handoff v0.8.0
 
 Existing Handoff code: Apache License 2.0. See Apache-2.0.txt.
 
@@ -16,7 +16,8 @@ Combined applications containing this adaptation are distributed under GPL-3.0.
 Miuix UI components: compose-miuix-ui contributors, Apache License 2.0.
 https://github.com/miuix-kotlin-multiplatform/miuix
 
-Corresponding source for this local development APK is the accompanying
-Handoff workspace, including its local changes, build files and license notices.
+Corresponding project source, build files and license notices are provided as
+Handoff-v0.8.0-source.zip with the v0.8.0 release and Git tag:
+https://github.com/gretae-King-1122/Handoff/releases/tag/v0.8.0
 When redistributing a binary, provide its matching complete source as required
-by GPL-3.0; the upstream Handoff v0.6.0 source alone does not include this change.
+by GPL-3.0; historical v0.6.0 source alone does not include this version.
