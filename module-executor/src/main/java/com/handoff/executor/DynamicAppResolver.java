@@ -25,6 +25,10 @@ final class DynamicAppResolver {
     }
 
     static List<Candidate> find(Context context, String input) {
+        return find(context, input, true);
+    }
+
+    private static List<Candidate> find(Context context, String input, boolean labels) {
         String url = DynamicLinkPolicy.normalize(input);
         if (url == null) return List.of();
         PackageManager pm = context.getPackageManager();
@@ -49,7 +53,7 @@ final class DynamicAppResolver {
             // One choice per installed App, not one choice per matching Activity.
             if (!seen.add(activity.packageName)) continue;
             String label;
-            try { label = info.loadLabel(pm).toString().replaceAll("[\\p{Cntrl}]", " "); }
+            try { label = labels ? info.loadLabel(pm).toString().replaceAll("[\\p{Cntrl}]", " ") : activity.packageName; }
             catch (RuntimeException ignored) { label = activity.packageName; }
             label = label.substring(0, Math.min(80, label.length()));
             result.add(new Candidate(new ComponentName(activity.packageName, activity.name), label,
@@ -90,12 +94,23 @@ final class DynamicAppResolver {
         return false;
     }
 
-    static boolean launch(Context context, String url, Candidate selected) {
-        if (selected == null) return false;
+    /** Worker-only: fresh filters, browser exclusion and approval; don't reload display labels. */
+    static Candidate revalidate(Context context, String url, Candidate selected, boolean requireApproval) {
+        if (selected == null) return null;
         try {
-            // Re-query after chooser delay: uninstall/disable/filter changes must fail back to QQ.
-            if (find(context, url).stream().noneMatch(c -> c.component().equals(selected.component()))) return false;
-            context.startActivity(view(url).setComponent(selected.component()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            var fresh = find(context, url, false);
+            if (requireApproval && fresh.size() != 1) return null;
+            return fresh.stream()
+                    .filter(c -> c.component().equals(selected.component()) && (!requireApproval || c.domainApproved()))
+                    .findFirst().orElse(null);
+        } catch (RuntimeException ignored) { return null; }
+    }
+
+    /** UI-thread start only, after this job's fresh worker validation. Android enforces component access again. */
+    static boolean start(Context context, String url, Candidate validated) {
+        if (validated == null || DynamicLinkPolicy.normalize(url) == null) return false;
+        try {
+            context.startActivity(view(url).setComponent(validated.component()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
             return true;
         } catch (RuntimeException ignored) { return false; }
     }

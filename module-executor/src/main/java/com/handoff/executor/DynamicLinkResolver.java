@@ -10,6 +10,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 import okhttp3.Call;
 import okhttp3.Dns;
 import okhttp3.OkHttpClient;
@@ -26,10 +27,14 @@ final class DynamicLinkResolver {
         default void cancel() { }
     }
     private final Discovery discovery;
-    private final Transport transport;
+    private final Supplier<Transport> transportFactory;
+    private volatile Transport transport;
     private volatile boolean cancelled;
-    DynamicLinkResolver(Discovery discovery) { this(discovery, new HttpTransport()); }
-    DynamicLinkResolver(Discovery discovery, Transport transport) { this.discovery = discovery; this.transport = transport; }
+    DynamicLinkResolver(Discovery discovery) { this(discovery, HttpTransport::new); }
+    DynamicLinkResolver(Discovery discovery, Transport transport) { this(discovery, () -> transport); }
+    DynamicLinkResolver(Discovery discovery, Supplier<Transport> transportFactory) {
+        this.discovery = discovery; this.transportFactory = transportFactory;
+    }
 
     Result resolve(String input, boolean network) {
         String current = DynamicLinkPolicy.normalize(input);
@@ -45,7 +50,13 @@ final class DynamicLinkResolver {
                 if (!network || hop == 3) return null;
                 long remaining = TimeUnit.NANOSECONDS.toMillis(deadline - System.nanoTime());
                 if (remaining <= 0) return null;
-                Redirect response = transport.fetch(current, (int) Math.max(1, Math.min(2500, remaining)));
+                // Single job worker owns initialization; cancel never waits for HTTP/TLS setup.
+                Transport http = transport;
+                if (http == null) { http = transportFactory.get(); transport = http; }
+                if (cancelled) { http.cancel(); return null; }
+                remaining = TimeUnit.NANOSECONDS.toMillis(deadline - System.nanoTime());
+                if (remaining <= 0) return null;
+                Redirect response = http.fetch(current, (int) Math.max(1, Math.min(2500, remaining)));
                 if (cancelled || response == null || System.nanoTime() >= deadline
                         || !Set.of(301, 302, 303, 307, 308).contains(response.status())
                         || response.location() == null || response.location().length() > 4096) return null;
@@ -60,7 +71,11 @@ final class DynamicLinkResolver {
         } catch (Exception ignored) { /* Never expose URL, tokens, response headers or raw errors. */ }
         return null;
     }
-    void cancel() { cancelled = true; transport.cancel(); }
+    void cancel() {
+        cancelled = true;
+        Transport http = transport;
+        if (http != null) http.cancel();
+    }
 
     static List<InetAddress> publicAddresses(String host, Dns source) throws UnknownHostException {
         List<InetAddress> answers = source.lookup(host);

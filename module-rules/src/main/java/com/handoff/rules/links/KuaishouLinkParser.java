@@ -16,8 +16,13 @@ public final class KuaishouLinkParser implements LinkParser {
 
     @Override public ParsedLink parseUrl(String url) {
         if (url == null || url.isEmpty() || url.length() > 4096) return null;
+        try { return parseUri(new URI(url)); } catch (URISyntaxException ignored) { return null; }
+    }
+
+    /** Reuse the browser boundary's parsed URI without weakening photoId conflict checks. */
+    public ParsedLink parseUri(URI uri) {
+        if (uri == null || uri.toString().isEmpty() || uri.toString().length() > 4096) return null;
         try {
-            URI uri = new URI(url);
             boolean https = "https".equalsIgnoreCase(uri.getScheme());
             if (!https && !"http".equalsIgnoreCase(uri.getScheme())) return null;
             if (uri.getRawUserInfo() != null) return null;
@@ -36,7 +41,7 @@ public final class KuaishouLinkParser implements LinkParser {
             // Keep only the explicit work ID. Never forward shareToken, userId, shareId, efid, etc.
             return new ParsedLink(ParsedLink.Platform.KUAISHOU, ParsedLink.Kind.VIDEO,
                     "https://v.m.chenzhongtech.com/fw/" + photo.group(1) + "/" + id + "?photoId=" + id, id);
-        } catch (URISyntaxException ignored) { }
+        } catch (IllegalArgumentException ignored) { }
         return null;
     }
 

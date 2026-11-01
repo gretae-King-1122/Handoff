@@ -1,6 +1,8 @@
 package com.handoff.hook;
 
 import com.handoff.api.health.QqAdapters;
+import com.handoff.api.health.HealthEvent;
+import java.util.function.Consumer;
 
 /** Testable final-dispatch boundary. An Intent is not trusted merely because it has KEY_APPINFO. */
 final class MiniContainerDispatch {
@@ -33,14 +35,29 @@ final class MiniContainerDispatch {
     }
     static Object intercept(Envelope envelope, Reader reader, MiniAppDispatch.Launcher launcher,
                             MiniAppDispatch.Original original, QqAdapters.Contract contract) throws Throwable {
+        return intercept(envelope, reader, launcher, original, contract, ignored -> { });
+    }
+
+    static Object intercept(Envelope envelope, Reader reader, MiniAppDispatch.Launcher launcher,
+                            MiniAppDispatch.Original original, QqAdapters.Contract contract,
+                            Consumer<HealthEvent.Reason> rejected) throws Throwable {
         // Most Activity calls aren't our route. Don't inspect or unmarshal their extras.
         if (!supported(envelope, contract)) return original.proceed();
-        Payload payload = null;
-        try { payload = reader.read(); } catch (Throwable ignored) { }
-        Object model = payload == null ? null : payload.model();
-        // The SDK normally writes receiver=null; presence of that key alone is not a callback.
-        boolean supported = payload != null && payload.sdkMode() && payload.receiver() == null
-                && model != null && contract.miniModel().equals(model.getClass().getName());
-        return MiniAppDispatch.intercept(model, supported, launcher, original);
+        MiniAppVideo video = null;
+        boolean supported = false;
+        HealthEvent.Reason reason = HealthEvent.Reason.PAYLOAD;
+        try {
+            Payload payload = reader.read();
+            Object model = payload == null ? null : payload.model();
+            // The SDK normally writes receiver=null; that key alone isn't a callback.
+            supported = payload != null && payload.sdkMode() && payload.receiver() == null
+                    && model != null && contract.miniModel().equals(model.getClass().getName());
+            if (supported) video = MiniAppVideo.read(model);
+        } catch (Throwable ignored) { reason = HealthEvent.Reason.UNREADABLE; }
+        // Logging observes the single validation result, never parses the mutable QQ model again.
+        if (video == null) {
+            try { rejected.accept(reason); } catch (Throwable ignored) { }
+        }
+        return MiniAppDispatch.interceptResolved(video, supported, launcher, original);
     }
 }

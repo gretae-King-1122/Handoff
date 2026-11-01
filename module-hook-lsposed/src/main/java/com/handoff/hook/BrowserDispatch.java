@@ -57,7 +57,14 @@ final class BrowserDispatch {
                 || !"com.tencent.mobileqq".equals(targetPackage)
                 || targetClass == null || !contract.browsers().contains(targetClass) || url == null) return null;
         try {
-            URI uri = new URI(url);
+            return videoId(new URI(url));
+        } catch (URISyntaxException ignored) { return null; }
+    }
+
+    /** The browser boundary validates the caller/target once before sharing this URI. */
+    static String videoId(URI uri) {
+        if (uri == null) return null;
+        try {
             boolean https = "https".equalsIgnoreCase(uri.getScheme());
             if (!https && !"http".equalsIgnoreCase(uri.getScheme())) return null;
             String host = uri.getHost();
@@ -70,7 +77,7 @@ final class BrowserDispatch {
             if (path == null) return null;
             Matcher matcher = VIDEO_PATH.matcher(path);
             return matcher.matches() ? matcher.group(1) : null;
-        } catch (URISyntaxException ignored) {
+        } catch (IllegalArgumentException ignored) {
             return null;
         }
     }

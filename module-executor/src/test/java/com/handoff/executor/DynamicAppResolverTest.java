@@ -71,12 +71,44 @@ public class DynamicAppResolverTest {
     @Test public void launchesOnlyExactResolvedComponentWithNoQqPayloadAndRechecksStaleChoices() {
         ResolveInfo app = add("example.app", "app.example.com");
         var selected = DynamicAppResolver.find(context, URL).get(0);
-        assertTrue(DynamicAppResolver.launch(context, URL, selected));
+        var validated = DynamicAppResolver.revalidate(context, URL, selected, false);
+        assertNotNull(validated);
+        assertTrue(DynamicAppResolver.start(context, URL, validated));
         var intent = shadowOf(RuntimeEnvironment.getApplication()).getNextStartedActivity();
         assertEquals(new ComponentName("example.app", "example.app.View"), intent.getComponent());
         assertEquals(URL, intent.getDataString()); assertNull(intent.getExtras()); assertNull(intent.getSelector());
         app.activityInfo.enabled = false;
-        assertFalse(DynamicAppResolver.launch(context, URL, selected));
+        assertNull(DynamicAppResolver.revalidate(context, URL, selected, false));
         assertNull(shadowOf(RuntimeEnvironment.getApplication()).getNextStartedActivity());
+    }
+
+    @Test public void recheckRequiresFreshDomainApprovalForAutomaticButNotExplicitChoice() {
+        add("example.app", "app.example.com");
+        var selected = DynamicAppResolver.find(context, URL).get(0);
+        assertNotNull(DynamicAppResolver.revalidate(context, URL, selected, false));
+        assertNull(DynamicAppResolver.revalidate(context, URL, selected, true));
+    }
+
+    @Test public void recheckStillExcludesAppsThatNowAppearAsGenericBrowsers() {
+        ResolveInfo info = add("example.app", "app.example.com");
+        var selected = DynamicAppResolver.find(context, URL).get(0);
+        shadowOf(context.getPackageManager()).addResolveInfoForIntent(
+                DynamicAppResolver.view("https://handoff-browser-probe.invalid/"), info);
+        assertNull(DynamicAppResolver.revalidate(context, URL, selected, false));
+    }
+
+    @Test public void finalRecheckDoesNotReloadDisplayLabels() {
+        ResolveInfo info = add("example.app", "app.example.com");
+        var loads = new java.util.concurrent.atomic.AtomicInteger();
+        info.nonLocalizedLabel = new CharSequence() {
+            @Override public int length() { return 7; }
+            @Override public char charAt(int index) { return "Example".charAt(index); }
+            @Override public CharSequence subSequence(int start, int end) { return "Example".subSequence(start, end); }
+            @Override public String toString() { loads.incrementAndGet(); return "Example"; }
+        };
+        var selected = DynamicAppResolver.find(context, URL).get(0);
+        assertEquals(1, loads.get());
+        assertNotNull(DynamicAppResolver.revalidate(context, URL, selected, false));
+        assertEquals(1, loads.get());
     }
 }

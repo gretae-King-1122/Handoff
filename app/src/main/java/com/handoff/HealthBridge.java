@@ -6,6 +6,7 @@ import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
 import com.handoff.api.health.HealthEvent;
+import com.handoff.api.health.HandoffSettingsCache;
 import com.handoff.api.health.QqAdapters;
 import io.github.libxposed.api.XposedInterface;
 import java.util.ArrayDeque;
@@ -27,12 +28,29 @@ final class HealthBridge {
             new ThreadPoolExecutor.DiscardPolicy());
     private volatile Context context;
     private volatile SharedPreferences settings;
+    // Separate from health reporting: a slow provider must not hold settings warmup behind telemetry.
+    private final ThreadPoolExecutor settingsWorker = new ThreadPoolExecutor(1, 1, 20, TimeUnit.SECONDS,
+            new ArrayBlockingQueue<>(1), task -> { Thread t = new Thread(task, "Handoff-settings"); t.setDaemon(true); return t; },
+            new ThreadPoolExecutor.AbortPolicy());
+    private final HandoffSettingsCache settingsCache;
+    private final SharedPreferences.OnSharedPreferenceChangeListener settingsListener = (preferences, key) -> refreshSettings();
     private volatile long qq;
     private volatile String qqName = "unknown";
     private volatile QqAdapters.Profile profile = QqAdapters.resolve(-1);
 
     HealthBridge(XposedInterface xposed, String process) {
         this.xposed = xposed; main = "com.tencent.mobileqq".equals(process);
+        settingsCache = new HandoffSettingsCache(settingsWorker, () -> {
+            if (settings == null) {
+                SharedPreferences loaded = xposed.getRemotePreferences("handoff_settings");
+                // Subscribe before snapshotting, so changes during load invalidate the old generation.
+                loaded.registerOnSharedPreferenceChangeListener(settingsListener);
+                settings = loaded;
+            }
+            return settings.getAll();
+        });
+        settingsWorker.allowCoreThreadTimeOut(true);
+        if (main) settingsCache.refresh();
         if (main) event(HealthEvent.of(HealthEvent.Kind.SESSION, HealthEvent.Entry.SYSTEM));
     }
     synchronized void bind(Application app) {
@@ -53,20 +71,12 @@ final class HealthBridge {
     }
     QqAdapters.Profile profile() { return profile; }
     boolean enabled(HealthEvent.Entry entry) {
-        try {
-            if (settings == null) settings = xposed.getRemotePreferences("handoff_settings");
-            return settings.getBoolean("enabled", true) && settings.getBoolean(entry.key, entry.defaultEnabled());
-        } catch (Throwable ignored) {
-            // The hook boundary reports CONFIG_UNAVAILABLE, not a misleading user-disabled signal.
-            throw new IllegalStateException("Settings unavailable");
-        }
+        return settingsCache.enabled(entry);
     }
+    private void refreshSettings() { if (main) settingsCache.refresh(); }
     boolean dynamicNetworkEnabled() {
-        try {
-            if (settings == null) settings = xposed.getRemotePreferences("handoff_settings");
-            return settings.getBoolean("enabled", true) && settings.getBoolean("dynamic", false)
-                    && settings.getBoolean("dynamic_network", false);
-        } catch (Throwable ignored) { return false; }
+        try { return settingsCache.dynamicNetworkEnabled(); }
+        catch (IllegalStateException ignored) { return false; }
     }
     private void send(Pending message) {
         worker.execute(() -> {

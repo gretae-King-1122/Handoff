@@ -55,25 +55,16 @@ final class MiniContainerHandoff {
                 Activity caller = activity;
                 Intent originalIntent = outgoing;
                 return MiniContainerDispatch.intercept(envelope, () -> {
-                    try {
-                        // Work on a copy: do not change QQ's Intent, parcel loader or original extras.
-                        Intent snapshot = new Intent(originalIntent);
-                        snapshot.setExtrasClassLoader(caller.getClass().getClassLoader());
-                        Bundle extras = snapshot.getExtras();
-                        if (extras == null) {
-                            HealthReports.emit(reporter, HealthEvent.Kind.PASSED, HealthEvent.Entry.CONTAINER, HealthEvent.Reason.PAYLOAD);
-                            return null;
-                        }
-                        MiniContainerDispatch.Payload payload = new MiniContainerDispatch.Payload(extras.getBoolean("sdk_mode", false),
-                                extras.get("receiver"), extras.get("KEY_APPINFO"));
-                        if (!payload.sdkMode() || payload.receiver() != null || MiniAppVideo.read(payload.model()) == null)
-                            HealthReports.emit(reporter, HealthEvent.Kind.PASSED, HealthEvent.Entry.CONTAINER, HealthEvent.Reason.PAYLOAD);
-                        return payload;
-                    } catch (Throwable error) {
-                        HealthReports.emit(reporter, HealthEvent.Kind.PASSED, HealthEvent.Entry.CONTAINER, HealthEvent.Reason.UNREADABLE);
-                        throw error;
-                    }
-                }, video -> MiniAppHandoff.launch(caller, video, reporter, "container-dispatch"), chain::proceed, reporter.profile().contract());
+                    // Work on a copy: do not change QQ's Intent, parcel loader or original extras.
+                    Intent snapshot = new Intent(originalIntent);
+                    snapshot.setExtrasClassLoader(caller.getClass().getClassLoader());
+                    Bundle extras = snapshot.getExtras();
+                    if (extras == null) return null;
+                    return new MiniContainerDispatch.Payload(extras.getBoolean("sdk_mode", false),
+                            extras.get("receiver"), extras.get("KEY_APPINFO"));
+                }, video -> MiniAppHandoff.launch(caller, video, reporter, "container-dispatch"), chain::proceed,
+                        reporter.profile().contract(), reason -> HealthReports.emit(reporter,
+                                HealthEvent.Kind.PASSED, HealthEvent.Entry.CONTAINER, reason));
             });
             log(reporter, "HANDOFF mini container installed " + method);
             HealthReports.emit(reporter, HealthEvent.Kind.INSTALLED, HealthEvent.Entry.CONTAINER);

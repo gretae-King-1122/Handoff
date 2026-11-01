@@ -35,6 +35,16 @@ final class MiniAppDispatch {
     }
 
     static Object intercept(Object model, boolean supported, Launcher launcher, Original original) throws Throwable {
+        return interceptRead(() -> MiniAppVideo.read(model), supported, launcher, original);
+    }
+
+    /** SDK boundary already validated this immutable value; don't reflect/parse the model twice. */
+    static Object interceptResolved(MiniAppVideo video, boolean supported, Launcher launcher, Original original) throws Throwable {
+        return interceptRead(() -> video, supported, launcher, original);
+    }
+
+    private interface Reader { MiniAppVideo read(); }
+    private static Object interceptRead(Reader reader, boolean supported, Launcher launcher, Original original) throws Throwable {
         if (!supported) return original.proceed();
         DispatchState state = IN_DISPATCH.get();
         boolean root = state == null;
@@ -46,7 +56,7 @@ final class MiniAppDispatch {
             boolean accepted = false;
             try {
                 if (!state.launching) {
-                    MiniAppVideo video = MiniAppVideo.read(model);
+                    MiniAppVideo video = reader.read();
                     if (video != null) {
                         Boolean previous = state.outcomes.get(video.id());
                         if (previous != null) accepted = previous;

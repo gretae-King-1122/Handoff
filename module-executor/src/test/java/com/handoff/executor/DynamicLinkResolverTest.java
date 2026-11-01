@@ -84,4 +84,51 @@ public class DynamicLinkResolverTest {
                 host -> List.of(publicIp, InetAddress.getByName("127.0.0.1"))));
         assertThrows(java.net.UnknownHostException.class, () -> DynamicLinkResolver.publicAddresses("empty.example.com", host -> List.of()));
     }
+
+    @Test public void transportIsNotConstructedForOfflineDirectOrCancelledRequests() {
+        java.util.function.Supplier<DynamicLinkResolver.Transport> forbidden = () -> {
+            fail("offline/direct/cancel paths must not initialize HTTP/TLS"); return null;
+        };
+        assertNull(new DynamicLinkResolver(url -> List.of(), forbidden).resolve(SHORT, false));
+        assertEquals(apps, new DynamicLinkResolver(url -> apps, forbidden).resolve(PAGE, true).candidates());
+        var cancelled = new DynamicLinkResolver(url -> List.of(), forbidden);
+        cancelled.cancel(); assertNull(cancelled.resolve(SHORT, true));
+    }
+
+    @Test public void transportIsCreatedOnceOnFirstFetchAndReusedAcrossHops() {
+        var created = new java.util.concurrent.atomic.AtomicInteger();
+        var fetched = new java.util.concurrent.atomic.AtomicInteger();
+        var r = new DynamicLinkResolver(url -> url.equals(PAGE) ? apps : List.of(), () -> {
+            created.incrementAndGet();
+            return (url, timeout) -> new DynamicLinkResolver.Redirect(302,
+                    fetched.incrementAndGet() == 1 ? SHORT + "next" : PAGE);
+        });
+        assertEquals(0, created.get());
+        assertEquals(PAGE, r.resolve(SHORT, true).url());
+        assertEquals(1, created.get()); assertEquals(2, fetched.get());
+    }
+
+    @Test public void cancellationDuringTransportCreationCancelsTheNewClientWithoutFetching() throws Exception {
+        var entered = new java.util.concurrent.CountDownLatch(1);
+        var release = new java.util.concurrent.CountDownLatch(1);
+        var cancelled = new java.util.concurrent.atomic.AtomicBoolean();
+        var r = new DynamicLinkResolver(url -> List.of(), () -> {
+            entered.countDown();
+            try { assertTrue(release.await(5, java.util.concurrent.TimeUnit.SECONDS)); }
+            catch (InterruptedException error) { throw new RuntimeException(error); }
+            return new DynamicLinkResolver.Transport() {
+                @Override public DynamicLinkResolver.Redirect fetch(String url, int timeout) {
+                    fail("cancelled initialization cannot start HTTP"); return null;
+                }
+                @Override public void cancel() { cancelled.set(true); }
+            };
+        });
+        Thread background = new Thread(() -> assertNull(r.resolve(SHORT, true)));
+        background.start();
+        try {
+            assertTrue(entered.await(5, java.util.concurrent.TimeUnit.SECONDS));
+            r.cancel(); // Must return even while construction is blocked.
+        } finally { release.countDown(); }
+        background.join(5000); assertFalse(background.isAlive()); assertTrue(cancelled.get());
+    }
 }

@@ -20,6 +20,9 @@ import java.util.concurrent.Executors;
 
 /** Owned discovery/chooser screen. QQ's UI thread never waits for package discovery or HTTP. */
 public class DynamicResolveActivity extends Activity {
+    interface Validator {
+        DynamicAppResolver.Candidate validate(String url, DynamicAppResolver.Candidate candidate, boolean requireApproval);
+    }
     static final String FALLBACK = "qq_fallback";
     static final String RESULT = "resolution_result";
     private PendingIntent fallback;
@@ -30,6 +33,7 @@ public class DynamicResolveActivity extends Activity {
     private boolean authorized;
     private boolean choosing;
     private android.app.AlertDialog chooser;
+    private final Object deliveryToken = new Object();
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -56,7 +60,8 @@ public class DynamicResolveActivity extends Activity {
             layout.addView(label);
             setContentView(layout);
             Object retained = getLastNonConfigurationInstance();
-            job = retained instanceof Job ? (Job) retained : new Job(link, getIntent().getBooleanExtra(DynamicLauncher.NETWORK, false), createResolver(), createWorker());
+            job = retained instanceof Job ? (Job) retained : new Job(link,
+                    getIntent().getBooleanExtra(DynamicLauncher.NETWORK, false), createResolver(), createWorker(), createValidator());
             job.owner = new WeakReference<>(this);
             job.start();
         } catch (RuntimeException ignored) {
@@ -70,6 +75,10 @@ public class DynamicResolveActivity extends Activity {
     DynamicLinkResolver createResolver() {
         android.content.Context application = getApplicationContext();
         return new DynamicLinkResolver(url -> DynamicAppResolver.find(application, url));
+    }
+    Validator createValidator() {
+        android.content.Context application = getApplicationContext();
+        return (url, candidate, requireApproval) -> DynamicAppResolver.revalidate(application, url, candidate, requireApproval);
     }
     ExecutorService createWorker() {
         return Executors.newSingleThreadExecutor(task -> {
@@ -108,11 +117,21 @@ public class DynamicResolveActivity extends Activity {
     }
 
     private void deliver() {
-        if (terminal || choosing || !resumed || job == null || !job.completed) return;
+        if (terminal || !resumed || job == null) return;
+        if (job.validationDone) {
+            if (job.validated != null && job.validatedFor != deliveryToken) {
+                // A successful check delivered while paused/detached isn't permission to launch later.
+                job.validationDone = false;
+                job.validating = false;
+                job.validate(job.launchUrl, job.selected, job.requireApproval);
+            } else { finishValidated(job.launchUrl, job.validated); }
+            return;
+        }
+        if (job.validating || choosing || !job.completed) return;
         DynamicLinkResolver.Result result = job.result;
         if (result == null || result.candidates().isEmpty()) { finishWith(null, null); return; }
         if (result.candidates().size() == 1 && result.candidates().get(0).domainApproved()) {
-            finishWith(result.url(), result.candidates().get(0));
+            job.validate(result.url(), result.candidates().get(0), true);
             return;
         }
         choosing = true;
@@ -126,6 +145,15 @@ public class DynamicResolveActivity extends Activity {
 
     private void finishWith(String url, DynamicAppResolver.Candidate candidate) {
         if (terminal || !resumed) return;
+        if (candidate != null) {
+            job.validate(url, candidate, false);
+            return;
+        }
+        finishValidated(null, null);
+    }
+
+    private void finishValidated(String url, DynamicAppResolver.Candidate candidate) {
+        if (terminal || !resumed) return;
         terminal = true;
         if (job != null) job.cancel();
         if (candidate != null && launchCandidate(url, candidate)) {
@@ -136,7 +164,7 @@ public class DynamicResolveActivity extends Activity {
     }
 
     boolean launchCandidate(String url, DynamicAppResolver.Candidate candidate) {
-        return DynamicAppResolver.launch(this, url, candidate);
+        return DynamicAppResolver.start(this, url, candidate);
     }
 
     private void returnToQq() {
@@ -168,13 +196,22 @@ public class DynamicResolveActivity extends Activity {
         final DynamicLinkResolver resolver;
         final Handler main = new Handler(Looper.getMainLooper());
         final ExecutorService worker;
+        final Validator validator;
         WeakReference<DynamicResolveActivity> owner = new WeakReference<>(null);
         boolean started, completed, cancelled;
         DynamicLinkResolver.Result result;
+        boolean validating, validationDone;
+        String launchUrl;
+        DynamicAppResolver.Candidate validated;
+        DynamicAppResolver.Candidate selected;
+        boolean requireApproval;
+        Object validatedFor;
         final Runnable timeout = () -> complete(null);
+        final Runnable validationTimeout = () -> completeValidation(null);
 
-        Job(String input, boolean network, DynamicLinkResolver resolver, ExecutorService worker) {
+        Job(String input, boolean network, DynamicLinkResolver resolver, ExecutorService worker, Validator validator) {
             this.input = input; this.network = network; this.resolver = resolver; this.worker = worker;
+            this.validator = validator;
         }
         void start() {
             if (started) return;
@@ -190,15 +227,42 @@ public class DynamicResolveActivity extends Activity {
             completed = true;
             result = resolved;
             main.removeCallbacks(timeout);
-            // Also stop I/O on timeout while detached for a configuration change.
-            worker.shutdownNow();
+            // Keep the worker for the final recheck after an optional chooser delay.
+            if (resolved == null || resolved.candidates().isEmpty()) worker.shutdownNow();
             resolver.cancel();
             DynamicResolveActivity activity = owner.get();
+            if (activity != null) activity.deliver();
+        }
+        void validate(String url, DynamicAppResolver.Candidate candidate, boolean requireApproval) {
+            if (cancelled || validating || validationDone) return;
+            validating = true;
+            launchUrl = url;
+            selected = candidate;
+            this.requireApproval = requireApproval;
+            main.postDelayed(validationTimeout, 7000);
+            try {
+                worker.execute(() -> {
+                    DynamicAppResolver.Candidate fresh = null;
+                    try { fresh = validator.validate(url, candidate, requireApproval); } catch (RuntimeException ignored) { }
+                    DynamicAppResolver.Candidate result = fresh;
+                    main.post(() -> completeValidation(result));
+                });
+            } catch (RuntimeException ignored) { completeValidation(null); }
+        }
+        void completeValidation(DynamicAppResolver.Candidate candidate) {
+            if (cancelled || validationDone) return;
+            validationDone = true;
+            validated = candidate;
+            main.removeCallbacks(validationTimeout);
+            DynamicResolveActivity activity = owner.get();
+            validatedFor = activity != null && activity.resumed ? activity.deliveryToken : null;
+            if (candidate == null) worker.shutdownNow();
             if (activity != null) activity.deliver();
         }
         void cancel() {
             cancelled = true;
             main.removeCallbacks(timeout);
+            main.removeCallbacks(validationTimeout);
             resolver.cancel();
             worker.shutdownNow();
         }

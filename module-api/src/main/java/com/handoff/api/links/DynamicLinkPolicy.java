@@ -15,8 +15,15 @@ public final class DynamicLinkPolicy {
     /** Keep path/query semantics (including share credentials); never log or persist this value. */
     public static String normalize(String input) {
         if (input == null || input.length() > 4096 || !input.equals(input.trim())) return null;
+        try { return normalizeUri(new URI(input)); } catch (Exception ignored) { return null; }
+    }
+
+    /** URI-sharing entry for local routing; all dynamic-policy restrictions still apply. */
+    public static String normalizeUri(URI uri) {
+        if (uri == null) return null;
+        String input = uri.toString();
+        if (input.length() > 4096 || !input.equals(input.trim())) return null;
         try {
-            URI uri = new URI(input);
             String host = uri.getHost();
             if (!"https".equalsIgnoreCase(uri.getScheme()) || host == null || uri.getRawUserInfo() != null
                     || (uri.getPort() != -1 && uri.getPort() != 443)) return null;

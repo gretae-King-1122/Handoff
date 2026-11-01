@@ -173,4 +173,34 @@ class MiniAppDispatchTest {
                 () -> original.incrementAndGet());
         assertEquals(1, original.get());
     }
+    @Test void resolvedValueIsReusedWithoutConsultingTheMutableQqModelAgain() throws Throwable {
+        Info model = new Info(); MiniAppVideo resolved = MiniAppVideo.read(model);
+        model.launchParam.entryPath = "pages/index/index";
+        AtomicInteger starts = new AtomicInteger();
+        assertNull(MiniAppDispatch.interceptResolved(resolved, true, video -> {
+            assertSame(resolved, video); starts.incrementAndGet(); return true;
+        }, () -> fail("Validated event should be handled")));
+        assertEquals(1, starts.get());
+    }
+    @Test void resolvedPathStillRequiresSupportedBoundaryAndValidResolvedValue() throws Throwable {
+        assertEquals("qq", MiniAppDispatch.interceptResolved(MiniAppVideo.read(new Info()), false,
+                video -> fail("Unknown caller"), () -> "qq"));
+        assertEquals("qq", MiniAppDispatch.interceptResolved(null, true,
+                video -> fail("No content"), () -> "qq"));
+    }
+    @Test void resolvedPathPreservesFailOpenGuardAndDoesNotRetryOriginalExceptions() throws Throwable {
+        MiniAppVideo video = MiniAppVideo.read(new Info()); AtomicInteger starts = new AtomicInteger();
+        AtomicInteger originals = new AtomicInteger();
+        assertEquals("qq", MiniAppDispatch.interceptResolved(video, true, v -> {
+            starts.incrementAndGet(); return false;
+        }, () -> MiniAppDispatch.interceptResolved(video, true, v -> fail("Repeated attempt"), () -> "qq")));
+        assertEquals(1, starts.get());
+        var failure = new IllegalStateException();
+        assertSame(failure, assertThrows(IllegalStateException.class, () ->
+                MiniAppDispatch.interceptResolved(video, true, v -> { throw new IllegalStateException(); }, () -> {
+                    originals.incrementAndGet(); throw failure;
+                })));
+        assertEquals(1, originals.get());
+        assertNull(MiniAppDispatch.interceptResolved(video, true, v -> true, () -> fail("Guard leaked")));
+    }
 }

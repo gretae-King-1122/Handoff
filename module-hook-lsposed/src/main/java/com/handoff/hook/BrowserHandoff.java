@@ -68,16 +68,19 @@ final class BrowserHandoff {
                                 ComponentName target = outgoing.getComponent();
                                 if (target == null) return false;
                                 String url = outgoing.getStringExtra("url");
-                                // Independent opt-in pilot. Do not change Bilibili matching, launch order or fallback.
-                                ParsedLink douyin = DouyinBrowserDispatch.parse(self.getClass().getName(),
+                                BrowserRoute route = BrowserRoute.parse(self.getClass().getName(),
                                         target.getPackageName(), target.getClassName(), url, reporter.profile().contract());
+                                if (route == null) return false;
+                                // Independent opt-in pilot. Do not change Bilibili matching, launch order or fallback.
+                                ParsedLink douyin = route.link() != null && route.link().platform() == ParsedLink.Platform.DOUYIN
+                                        ? route.link() : null;
                                 if (douyin != null) {
                                     if (((Activity) self).isDestroyed() || outgoing.getSelector() != null
                                             || (outgoing.getFlags() & Intent.FLAG_ACTIVITY_FORWARD_RESULT) != 0) return false;
                                     return DouyinHandoff.redirect(() -> DouyinLauncher.launch((Activity) self, douyin), reporter);
                                 }
-                                ParsedLink kuaishou = KuaishouBrowserDispatch.parse(self.getClass().getName(),
-                                        target.getPackageName(), target.getClassName(), url, reporter.profile().contract());
+                                ParsedLink kuaishou = route.link() != null && route.link().platform() == ParsedLink.Platform.KUAISHOU
+                                        ? route.link() : null;
                                 if (kuaishou != null) {
                                     if (((Activity) self).isDestroyed() || outgoing.getSelector() != null
                                             || (outgoing.getFlags() & Intent.FLAG_ACTIVITY_FORWARD_RESULT) != 0) return false;
@@ -97,11 +100,9 @@ final class BrowserHandoff {
                                     }
                                     return KuaishouHandoff.redirect(() -> KuaishouLauncher.launch((Activity) self, kuaishou), reporter);
                                 }
-                                String id = BrowserDispatch.videoId(self.getClass().getName(),
-                                        target.getPackageName(), target.getClassName(), url, reporter.profile().contract());
+                                String id = route.biliId();
                                 if (id == null) {
-                                    String dynamic = DynamicBrowserDispatch.parse(self.getClass().getName(),
-                                            target.getPackageName(), target.getClassName(), url, reporter.profile().contract());
+                                    String dynamic = route.dynamicUrl();
                                     if (dynamic == null || ((Activity) self).isDestroyed() || ((Activity) self).isFinishing()
                                             || outgoing.getSelector() != null
                                             || (outgoing.getFlags() & Intent.FLAG_ACTIVITY_FORWARD_RESULT) != 0) return false;

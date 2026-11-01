@@ -36,6 +36,9 @@ public class DynamicResolveActivityTest {
     private static boolean failLaunch;
     private static boolean approved;
     private static boolean multiple;
+    private static boolean validationFails, approvalRevoked;
+    private static int rechecks;
+    private static boolean recheckOnUi;
     private static final List<Intent> launches = new ArrayList<>();
     private final List<Integer> results = new ArrayList<>();
     private PendingIntent fallback;
@@ -43,7 +46,10 @@ public class DynamicResolveActivityTest {
     private static class ManualWorker extends AbstractExecutorService {
         final List<Runnable> tasks = new ArrayList<>();
         boolean stopped;
-        @Override public void execute(Runnable task) { tasks.add(task); }
+        @Override public void execute(Runnable task) {
+            if (stopped) throw new java.util.concurrent.RejectedExecutionException();
+            tasks.add(task);
+        }
         @Override public void shutdown() { stopped = true; }
         @Override public List<Runnable> shutdownNow() {
             stopped = true; List<Runnable> result = new ArrayList<>(tasks); tasks.clear(); return result;
@@ -51,7 +57,8 @@ public class DynamicResolveActivityTest {
         @Override public boolean isShutdown() { return stopped; }
         @Override public boolean isTerminated() { return stopped; }
         @Override public boolean awaitTermination(long t, TimeUnit u) { return stopped; }
-        void resolve() { tasks.remove(0).run(); shadowOf(Looper.getMainLooper()).idle(); }
+        void step() { tasks.remove(0).run(); shadowOf(Looper.getMainLooper()).idle(); }
+        void resolve() { while (!tasks.isEmpty()) step(); }
     }
     public static class TestActivity extends DynamicResolveActivity {
         @Override public String getCallingPackage() { return "com.tencent.mobileqq"; }
@@ -64,6 +71,13 @@ public class DynamicResolveActivityTest {
             });
         }
         @Override java.util.concurrent.ExecutorService createWorker() { return worker; }
+        @Override Validator createValidator() {
+            return (url, candidate, requireApproval) -> {
+                rechecks++;
+                recheckOnUi = Looper.myLooper() == Looper.getMainLooper();
+                return validationFails || (requireApproval && approvalRevoked) ? null : candidate;
+            };
+        }
         @Override boolean launchCandidate(String url, DynamicAppResolver.Candidate candidate) {
             if (failLaunch) return false;
             launches.add(DynamicAppResolver.view(url).setComponent(candidate.component()));
@@ -76,6 +90,7 @@ public class DynamicResolveActivityTest {
 
     @Before public void setup() {
         worker = new ManualWorker(); location = PAGE; requests = 0; failLaunch = false; approved = true; multiple = false; launches.clear();
+        validationFails = false; approvalRevoked = false; rechecks = 0; recheckOnUi = false;
     }
     private static Context qqContext() {
         return new ContextWrapper(RuntimeEnvironment.getApplication()) {
@@ -110,6 +125,17 @@ public class DynamicResolveActivityTest {
         assertEquals(PAGE, launches.get(0).getDataString());
         assertEquals(List.of(DynamicLauncher.STARTED), results);
         assertTrue(shadowOf(fallback).isCanceled()); assertTrue(controller.get().isFinishing());
+    }
+
+    @Test public void finalRecheckIsDeferredInsteadOfLaunchingFromTheDiscoveryCallback() {
+        open();
+        worker.tasks.remove(0).run();
+        shadowOf(Looper.getMainLooper()).idle();
+        assertTrue("final package recheck must be queued off the UI thread", launches.isEmpty());
+        assertTrue(results.isEmpty());
+        assertEquals(1, worker.tasks.size());
+        worker.resolve();
+        assertEquals(List.of(DynamicLauncher.STARTED), results);
     }
 
     @Test public void failedResolutionReturnsTheOriginalQqIntentOnce() {
@@ -188,6 +214,7 @@ public class DynamicResolveActivityTest {
         var dialog = org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();
         assertNotNull(dialog);
         dialog.getListView().performItemClick(null, 0, 0);
+        worker.resolve();
         assertEquals(1, launches.size()); assertEquals(List.of(DynamicLauncher.STARTED), results);
     }
     @Test public void multipleAppsNeverAutoChooseAndRotationKeepsOneJob() {
@@ -196,6 +223,7 @@ public class DynamicResolveActivityTest {
         assertTrue(worker.tasks.isEmpty()); assertEquals(1, requests);
         var dialog = org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();
         dialog.getListView().performItemClick(null, 1, 1);
+        worker.resolve();
         assertEquals("other.app", launches.get(0).getComponent().getPackageName());
         assertEquals(List.of(DynamicLauncher.STARTED), results);
     }
@@ -217,6 +245,80 @@ public class DynamicResolveActivityTest {
         var controller = Robolectric.buildActivity(UntrustedActivity.class, request()).setup();
         assertTrue(controller.get().isFinishing()); assertTrue(worker.tasks.isEmpty());
         assertTrue(launches.isEmpty()); assertEquals(0, requests);
+    }
+
+    @Test public void packageRecheckRunsOnTheWorkerAndUiOnlyDeliversItsResult() throws Exception {
+        open(); worker.step();
+        Runnable validation = worker.tasks.remove(0);
+        Thread background = new Thread(validation, "test-final-recheck");
+        background.start(); background.join(5000);
+        assertFalse(background.isAlive());
+        assertEquals(1, rechecks); assertFalse(recheckOnUi);
+        assertTrue(launches.isEmpty());
+        shadowOf(Looper.getMainLooper()).idle();
+        assertEquals(List.of(DynamicLauncher.STARTED), results);
+    }
+
+    @Test public void backDuringFinalRecheckIgnoresLateValidation() {
+        var controller = open(); worker.step(); Runnable late = worker.tasks.get(0);
+        controller.get().onBackPressed(); late.run(); shadowOf(Looper.getMainLooper()).idle();
+        assertTrue(launches.isEmpty()); assertEquals(List.of(DynamicLauncher.CANCELLED), results);
+        assertNull(shadowOf(RuntimeEnvironment.getApplication()).getNextStartedActivity());
+    }
+
+    @Test public void rotationDuringFinalRecheckRetainsOneTaskAndDoesNotReopenChooser() {
+        var controller = open(); worker.step(); controller.recreate();
+        assertEquals(1, worker.tasks.size()); worker.resolve();
+        assertEquals(1, rechecks); assertEquals(1, launches.size());
+        assertEquals(List.of(DynamicLauncher.STARTED), results);
+    }
+
+    @Test public void finalRecheckTimeoutFallsBackOnceAndIgnoresLateResult() {
+        open(); worker.step(); Runnable late = worker.tasks.get(0);
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(7));
+        late.run(); shadowOf(Looper.getMainLooper()).idle();
+        assertTrue(launches.isEmpty()); assertEquals(List.of(DynamicLauncher.FAILED), results);
+        assertNotNull(shadowOf(RuntimeEnvironment.getApplication()).getNextStartedActivity());
+        assertNull(shadowOf(RuntimeEnvironment.getApplication()).getNextStartedActivity());
+    }
+
+    @Test public void revokedApprovalCannotAutoLaunchAnOldApprovedCandidate() {
+        open(); worker.step(); approvalRevoked = true; worker.resolve();
+        assertTrue(launches.isEmpty()); assertEquals(List.of(DynamicLauncher.FAILED), results);
+    }
+
+    @Test public void staleChooserCandidateIsRecheckedAndCannotLaunch() {
+        approved = false; open(); worker.resolve();
+        var dialog = org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();
+        validationFails = true;
+        dialog.getListView().performItemClick(null, 0, 0);
+        assertTrue(launches.isEmpty()); worker.resolve();
+        assertEquals(1, rechecks); assertTrue(launches.isEmpty());
+        assertEquals(List.of(DynamicLauncher.FAILED), results);
+    }
+
+    @Test public void successfulValidationWhilePausedMustBeRepeatedOnResume() {
+        var controller = open(); worker.step(); controller.pause();
+        worker.step(); assertTrue(launches.isEmpty()); assertEquals(1, rechecks);
+        validationFails = true; // The component changed before this Activity became visible again.
+        controller.resume(); assertTrue(launches.isEmpty()); assertEquals(1, worker.tasks.size());
+        worker.resolve(); assertEquals(2, rechecks);
+        assertTrue(launches.isEmpty()); assertEquals(List.of(DynamicLauncher.FAILED), results);
+    }
+
+    @Test public void leavingDuringFinalValidationCancelsWithoutEitherDestination() {
+        var controller = open(); worker.step(); Runnable late = worker.tasks.get(0);
+        controller.pause().stop(); late.run(); shadowOf(Looper.getMainLooper()).idle();
+        assertEquals(List.of(DynamicLauncher.CANCELLED), results); assertTrue(launches.isEmpty());
+        assertNull(shadowOf(RuntimeEnvironment.getApplication()).getNextStartedActivity());
+    }
+
+    @Test public void unavailableValidationWorkerFallsBackExactlyOnce() {
+        open(); worker.tasks.remove(0).run(); worker.stopped = true;
+        shadowOf(Looper.getMainLooper()).idle();
+        assertEquals(List.of(DynamicLauncher.FAILED), results); assertTrue(launches.isEmpty());
+        assertNotNull(shadowOf(RuntimeEnvironment.getApplication()).getNextStartedActivity());
+        assertNull(shadowOf(RuntimeEnvironment.getApplication()).getNextStartedActivity());
     }
 
 }

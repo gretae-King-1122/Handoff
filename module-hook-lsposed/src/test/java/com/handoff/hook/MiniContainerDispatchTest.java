@@ -185,4 +185,33 @@ class MiniContainerDispatchTest {
         assertEquals("qq", MiniContainerDispatch.intercept(route(), () -> null,
                 video -> fail("no payload"), () -> "qq"));
     }
+
+    @Test void diagnosticsObserveValidationWithoutASecondPayloadRead() throws Throwable {
+        AtomicInteger reads = new AtomicInteger();
+        AtomicInteger launches = new AtomicInteger();
+        AtomicInteger rejections = new AtomicInteger();
+        assertNull(MiniContainerDispatch.intercept(route(), () -> { reads.incrementAndGet(); return payload(); },
+                video -> { launches.incrementAndGet(); return true; }, () -> fail("accepted"),
+                com.handoff.api.health.QqAdapters.STRICT, reason -> rejections.incrementAndGet()));
+        assertEquals(1, reads.get()); assertEquals(1, launches.get());
+        assertEquals(0, rejections.get());
+    }
+
+    @Test void modelAndParcelRejectionsAreReportedOnceAndDiagnosticErrorsCannotRetryQq() throws Throwable {
+        for (boolean unreadable : List.of(false, true)) {
+            AtomicInteger reports = new AtomicInteger();
+            AtomicInteger originals = new AtomicInteger();
+            assertEquals("qq", MiniContainerDispatch.intercept(route(), () -> {
+                if (unreadable) throw new IllegalArgumentException("parcel");
+                MiniAppInfo invalid = new MiniAppInfo(); invalid.launchParam.entryPath = "pages/index/index";
+                return new MiniContainerDispatch.Payload(true, null, invalid);
+            }, video -> fail("invalid model"), () -> { originals.incrementAndGet(); return "qq"; },
+                    com.handoff.api.health.QqAdapters.STRICT, reason -> {
+                        assertEquals(unreadable ? com.handoff.api.health.HealthEvent.Reason.UNREADABLE
+                                : com.handoff.api.health.HealthEvent.Reason.PAYLOAD, reason);
+                        reports.incrementAndGet(); throw new IllegalStateException("reporting failed");
+                    }));
+            assertEquals(1, reports.get()); assertEquals(1, originals.get());
+        }
+    }
 }

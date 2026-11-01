@@ -38,10 +38,13 @@ final class MiniAppHandoff {
             throw new NoSuchMethodException("Unsupported mini launch signature");
         }
         boolean added = INSTALLATIONS.install(method, () -> xposed.hook(method).setPriority(XposedInterface.PRIORITY_HIGHEST).intercept(chain -> {
+            long entered = SystemClock.elapsedRealtimeNanos();
             if (boundaryDiagnostics) info(reporter, "[DEBUG-mini-boundary] enter " + method);
             Activity activity;
             Object info;
             boolean supported;
+            MiniAppVideo video;
+            boolean bili;
             try {
                 Object arg = chain.getArgs().get(0);
                 activity = arg instanceof Activity ? (Activity) arg : null;
@@ -51,11 +54,13 @@ final class MiniAppHandoff {
                         ? "inactive-activity" : MiniAppDispatch.callerRejectionReason(activity.getClass().getName(),
                         chain.getArgs().get(3) != null, extras == null ? Set.of() : extras.keySet(), reporter.profile().contract().miniCaller());
                 supported = reason == null;
-                if ("1109937557".equals(Reflect.str(info, "appId"))) {
+                bili = "1109937557".equals(Reflect.str(info, "appId"));
+                video = supported && bili ? MiniAppVideo.read(info) : null;
+                if (bili) {
                     HealthReports.emit(reporter, HealthEvent.Kind.ENTERED, HealthEvent.entry(entry));
                     if (!supported) HealthReports.emit(reporter, HealthEvent.Kind.PASSED,
                             HealthEvent.entry(entry), HealthReports.reason(reason));
-                    else if (MiniAppVideo.read(info) == null) HealthReports.emit(reporter, HealthEvent.Kind.PASSED,
+                    else if (video == null) HealthReports.emit(reporter, HealthEvent.Kind.PASSED,
                             HealthEvent.entry(entry), HealthEvent.Reason.MODEL);
                 }
                 if (boundaryDiagnostics) {
@@ -64,7 +69,7 @@ final class MiniAppHandoff {
                             + " callerResult=" + (reason == null ? "supported" : reason)
                             + " " + MiniBoundarySummary.describe(info));
                 }
-                if (!supported && "1109937557".equals(Reflect.str(info, "appId"))) {
+                if (!supported && bili) {
                     info(reporter, "HANDOFF mini pass reason=" + reason);
                 }
             } catch (Throwable ignored) {
@@ -72,10 +77,20 @@ final class MiniAppHandoff {
                 HealthReports.emit(reporter, HealthEvent.Kind.PASSED, HealthEvent.entry(entry), HealthEvent.Reason.UNREADABLE);
                 return chain.proceed();
             }
-            if ("1109937557".equals(Reflect.str(info, "appId"))
+            long matched = SystemClock.elapsedRealtimeNanos();
+            if (bili
                     && !HealthReports.enabled(reporter, HealthEvent.entry(entry))) return chain.proceed();
-            return MiniAppDispatch.intercept(info, supported,
-                    video -> launch(activity, video, reporter, entry), chain::proceed);
+            long settingsReady = SystemClock.elapsedRealtimeNanos();
+            return MiniAppDispatch.interceptResolved(video, supported,
+                    resolved -> {
+                        boolean accepted = launch(activity, resolved, reporter, entry);
+                        info(reporter, "HANDOFF mini timing entry=" + entry + " accepted=" + accepted
+                                + " matchUs=" + (matched - entered) / 1_000
+                                + " settingsUs=" + (settingsReady - matched) / 1_000
+                                + " dispatchUs=" + (SystemClock.elapsedRealtimeNanos() - settingsReady) / 1_000
+                                + " totalUs=" + (SystemClock.elapsedRealtimeNanos() - entered) / 1_000);
+                        return accepted;
+                    }, chain::proceed);
         }));
         if (added) info(reporter, "HANDOFF mini installed " + method);
         HealthReports.emit(reporter, HealthEvent.Kind.INSTALLED, HealthEvent.entry(entry));

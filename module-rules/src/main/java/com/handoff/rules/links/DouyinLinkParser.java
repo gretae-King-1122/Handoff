@@ -18,8 +18,13 @@ public final class DouyinLinkParser implements LinkParser {
 
     @Override public ParsedLink parseUrl(String url) {
         if (url == null || url.isEmpty() || url.length() > MAX_URL) return null;
+        try { return parseUri(new URI(url)); } catch (URISyntaxException ignored) { return null; }
+    }
+
+    /** Reuse the browser boundary's parsed URI, with the same platform-specific checks. */
+    public ParsedLink parseUri(URI uri) {
+        if (uri == null || uri.toString().isEmpty() || uri.toString().length() > MAX_URL) return null;
         try {
-            URI uri = new URI(url);
             boolean https = "https".equalsIgnoreCase(uri.getScheme());
             if (!https && !"http".equalsIgnoreCase(uri.getScheme())) return null;
             if (uri.getRawUserInfo() != null || uri.getHost() == null) return null;
@@ -36,7 +41,7 @@ public final class DouyinLinkParser implements LinkParser {
                 if (match.matches()) return new ParsedLink(ParsedLink.Platform.DOUYIN, ParsedLink.Kind.VIDEO,
                         "https://www.douyin.com/video/" + match.group(1), match.group(1));
             }
-        } catch (URISyntaxException ignored) { }
+        } catch (IllegalArgumentException ignored) { }
         return null;
     }
 
