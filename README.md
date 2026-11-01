@@ -7,7 +7,7 @@
     <a href="https://github.com/gretae-King-1122/Handoff/releases/latest"><img src="https://img.shields.io/github/v/release/gretae-King-1122/Handoff?label=Release&amp;logo=github&amp;color=008597" alt="Latest release" /></a>
     <a href="#环境要求"><img src="https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&amp;logoColor=white" alt="Android 8.0+ 编译下限" /></a>
     <a href="#环境要求"><img src="https://img.shields.io/badge/LSPosed-API%20102-7258F5" alt="LSPosed / libxposed API 102" /></a>
-    <a href="LICENSE"><img src="https://img.shields.io/github/license/gretae-King-1122/Handoff?label=License&amp;color=F59E0B" alt="License: Apache-2.0" /></a>
+    <a href="LICENSING.md"><img src="https://img.shields.io/badge/Development_build-GPL--3.0-F59E0B" alt="Development build: GPL-3.0 combination; original files Apache-2.0" /></a>
   </p>
   <p>
     <a href="https://github.com/gretae-King-1122/Handoff/releases/latest">下载正式版</a> ·
@@ -25,7 +25,7 @@ Handoff 是一个轻量 LSPosed 模块。点击 QQ 中支持的视频卡片或�
 | 能力 | 说明 |
 | --- | --- |
 | 视频交接 | 浏览器／小程序多入口互补，按实际 ClassLoader 补挂 |
-| 双风格界面 | Material 3 Expressive / Miuix，跟随系统浅色／深色 |
+| 双风格界面 | 本地开发版采用 Compose Material 3，保留 Miuix 外观选项，跟随系统浅色／深色 |
 | 状态与诊断 | 展示真实激活状态、框架信息与入口信号，支持脱敏导出 |
 | 回归与设置 | 绑定环境记录测试结果，提供总开关和六类入口开关 |
 
@@ -38,7 +38,20 @@ Handoff 是一个轻量 LSPosed 模块。点击 QQ 中支持的视频卡片或�
 > 用户已确认当前设备的抖音、快手作品长链及 `v.kuaishou.com` 短链可进入对应作品；短链后台解析失败时返回 QQ 浏览器。上述真机确认来自同源开发包，不代表所有设备均兼容。
 > [抖音说明 →](DOUYIN_PILOT.md) · [快手范围与验收 →](KUAISHOU_PILOT.md)
 
-## 双风格真机效果图
+## Compose 开发版预览
+
+当前工作区采用 **Jetpack Compose + Material 3 / Miuix** 两套组件：Material 底栏直接接入 SukiSU-Ultra 的液态玻璃分支，包括背景模糊、透镜折射、边缘高光及可拖动的弹性指示器；Miuix 接入同款 0.9.4 组件库的导航、卡片、开关和按钮，采用灰底分组列表。完整光学效果要求 Android 13+ 硬件加速；旧系统、软件绘制和减少动效保留降级路径。此改版尚未发布到 Releases。
+
+本地开发版包含 GPL-3.0 底栏源码；组合应用分发须遵循 GPL-3.0，原 Apache-2.0 文件保留许可。来源、改动及完整许可见 [LICENSING.md](LICENSING.md)。
+
+![Compose 四页离线预览](assets/screenshots/compose/pages.png)
+
+[双风格并排对照](assets/screenshots/compose/styles.png) · [浅深色与面板对照](assets/screenshots/compose/appearance.png) · [页面过渡动图](assets/screenshots/compose/motion.gif) · [设计、实现与验证说明](UI_DESIGN.md)
+
+预览由实际 Compose 树离线渲染生成，不是真机截图。Android 12+ 硬件渲染支持背景模糊；旧系统和软件渲染使用底色降级。预览保持未知／未确认状态，不代表视频交接验收。
+
+<details>
+<summary>历史 Views 版双风格真机效果图</summary>
 
 在「设置 → 个性化 → 界面风格」切换，两套风格均跟随系统浅色／深色。
 外观保存在本机，切换不修改交接开关，也不需要重开 QQ。
@@ -52,8 +65,10 @@ Handoff 是一个轻量 LSPosed 模块。点击 QQ 中支持的视频卡片或�
 > 来自 v0.4.0 发布前的同源开发包（图中仍标 v0.3.0 / 6），只裁去系统栏，未修改应用内容。
 > “已激活”和挂载记录不代表视频交接已验证通过；截图过程未修改交接开关或创建回归结果。
 
-界面视觉参考 [SukiSU-Ultra](https://github.com/SukiSU-Ultra/SukiSU-Ultra)，使用 Android Views 独立实现，
-未复制其 GPL 源码或引入其 Compose 组件库。[设计与截图说明 →](UI_DESIGN.md)
+历史界面视觉参考 [SukiSU-Ultra](https://github.com/SukiSU-Ultra/SukiSU-Ultra)，当时使用 Android Views 独立实现，
+未复制其 GPL 源码或引入其 Compose 组件库。当前源码的 Compose 改版见上方。
+
+</details>
 
 ## 支持范围
 

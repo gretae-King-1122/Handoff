@@ -1,13 +1,13 @@
 <resources>
-    <color name="handoff_primary">#006878</color>
+    <color name="handoff_primary">#1A73E8</color>
     <color name="handoff_on_primary">#FFFFFF</color>
-    <color name="handoff_primary_container">#A6EDFF</color>
-    <color name="handoff_on_primary_container">#001F26</color>
-    <color name="handoff_surface">#F1F6F8</color>
+    <color name="handoff_primary_container">#D3E3FD</color>
+    <color name="handoff_on_primary_container">#174275</color>
+    <color name="handoff_surface">#F7F9FC</color>
     <color name="handoff_surface_container">#FFFFFF</color>
-    <color name="handoff_on_surface">#171D1F</color>
-    <color name="handoff_on_surface_variant">#3F484C</color>
-    <color name="handoff_outline_variant">#BFC8CD</color>
+    <color name="handoff_on_surface">#202124</color>
+    <color name="handoff_on_surface_variant">#5F6368</color>
+    <color name="handoff_outline_variant">#E1E5EC</color>
     <color name="handoff_warning">#825500</color>
     <color name="handoff_error">#BA1A1A</color>
     <bool name="handoff_light_system_bars">true</bool>
