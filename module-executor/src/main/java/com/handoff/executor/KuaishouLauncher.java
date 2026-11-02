@@ -8,6 +8,7 @@ import android.net.Uri;
 import com.handoff.api.links.ParsedLink;
 import com.handoff.rules.links.KuaishouLinkParser;
 import com.handoff.api.health.QqAdapters;
+import com.handoff.api.HostApps;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /** The installed mainland Kuaishou registers this share host. No guessed scheme or homepage fallback. */
@@ -37,10 +38,10 @@ public final class KuaishouLauncher {
                                        ResultReceiver receiver) {
         if (link == null || link.kind() != ParsedLink.Kind.SHORT_LINK
                 || !link.equals(PARSER.parseUrl(link.canonicalUrl())) || originalBrowser == null
-                || !"com.tencent.mobileqq".equals(context.getPackageName())
+                || !HostApps.isSupported(context.getPackageName())
                 || originalBrowser.getComponent() == null
-                || !"com.tencent.mobileqq".equals(originalBrowser.getComponent().getPackageName())
-                || !QqAdapters.STRICT.browsers().contains(originalBrowser.getComponent().getClassName())
+                || !context.getPackageName().equals(originalBrowser.getComponent().getPackageName())
+                || !QqAdapters.resolve(context.getPackageName(), -1).contract().browsers().contains(originalBrowser.getComponent().getClassName())
                 || !link.equals(PARSER.parseUrl(originalBrowser.getStringExtra("url")))
                 || originalBrowser.getSelector() != null
                 || (originalBrowser.getFlags() & Intent.FLAG_ACTIVITY_FORWARD_RESULT) != 0) return false;

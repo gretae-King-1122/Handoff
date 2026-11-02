@@ -19,7 +19,7 @@ import kotlinx.coroutines.withContext
 internal sealed interface DashboardEvent {
     data class Message(val text: String) : DashboardEvent
     data class Share(val text: String) : DashboardEvent
-    data object OpenQq : DashboardEvent
+    data class OpenHost(val packageName: String) : DashboardEvent
 }
 
 internal class DashboardViewModel(private val backend: DashboardBackend, private val dispatcher: CoroutineDispatcher = Dispatchers.IO) : ViewModel(), DashboardActions {
@@ -78,17 +78,18 @@ internal class DashboardViewModel(private val backend: DashboardBackend, private
                     val snapshot = backend.read()
                     mutable.update { it.copy(snapshot = snapshot) }
                 } }
-                message("已保存，请强停重开 QQ")
+                message("已保存，请强停重开 QQ / TIM")
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) { message("保存失败，未确认生效"); refresh() }
             finally { mutable.update { it.copy(pendingSettings = it.pendingSettings - key) } }
         }
     }
+    override fun selectHost(packageName: String) = mutate { backend.selectHost(packageName) }
     override fun requestScope() {
         viewModelScope.launch {
             withContext(dispatcher) {
                 backend.requestScope { approved ->
-                    message(if (approved) "作用域已更新，请重开 QQ" else "请到 LSPosed 手动检查 QQ 作用域")
+                    message(if (approved) "作用域已更新，请重开 ${mutable.value.snapshot.hostLabel}" else "请到 LSPosed 手动检查 ${mutable.value.snapshot.hostLabel} 作用域")
                     refresh()
                 }
             }
@@ -96,7 +97,7 @@ internal class DashboardViewModel(private val backend: DashboardBackend, private
     }
     override fun startRun() {
         val env = mutable.value.snapshot.environment
-        if (env.qq() <= 0) return message("请先安装 QQ")
+        if (env.qq() <= 0) return message("请先安装 ${mutable.value.snapshot.hostLabel}")
         mutate { backend.startRun(env) }
     }
     override fun mark(test: HealthPolicy.Case, result: String) {
@@ -116,7 +117,7 @@ internal class DashboardViewModel(private val backend: DashboardBackend, private
         }
     }
     override fun share() { messages.trySend(DashboardEvent.Share(mutable.value.snapshot.report())) }
-    override fun openQq() { messages.trySend(DashboardEvent.OpenQq) }
+    override fun openQq() { messages.trySend(DashboardEvent.OpenHost(mutable.value.snapshot.hostPackage)) }
     private fun message(text: String) { messages.trySend(DashboardEvent.Message(text)) }
     override fun onCleared() { backend.unobserve(changed); refreshes.close(); messages.close() }
 }

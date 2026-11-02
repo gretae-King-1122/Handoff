@@ -104,12 +104,12 @@ final class BrowserHandoff {
                                 String how = launch((Activity) self, url, id);
                                 long accepted = SystemClock.elapsedRealtimeNanos();
                                 if (how == null) {
-                                    warn(reporter, "HANDOFF 外跳失败，放行 QQ 浏览器 id=" + id, null);
+                                    warn(reporter, "HANDOFF 外跳失败，放行宿主浏览器 package=" + reporter.profile().packageName() + " id=" + id, null);
                                     HealthReports.emit(reporter, HealthEvent.Kind.LAUNCH_FAILED, HealthEvent.Entry.BROWSER, HealthEvent.Reason.START_FAILED);
                                     return false;
                                 }
                                 // Logging must not turn an accepted launch into fail-open. No query tokens in logs.
-                                info(reporter, "HANDOFF blocked QQ browser id=" + id + " via " + how
+                                info(reporter, "HANDOFF blocked host browser package=" + reporter.profile().packageName() + " id=" + id + " via " + how
                                         + " matchUs=" + (matched - start) / 1_000
                                         + " launchUs=" + (accepted - matched) / 1_000
                                         + " totalUs=" + (accepted - start) / 1_000);
@@ -129,7 +129,7 @@ final class BrowserHandoff {
                 HealthReports.emit(reporter, HealthEvent.Kind.INSTALL_FAILED, HealthEvent.Entry.KUAISHOU, HealthEvent.Reason.SIGNATURE);
             }
         }
-        if (installed == 0) warn(reporter, "HANDOFF 没有可用派发点，保留 QQ 原行为", null);
+        if (installed == 0) warn(reporter, "HANDOFF 没有可用派发点，保留宿主原行为", null);
     }
 
     private static void info(LsposedBackend.Reporter reporter, String message) {

@@ -64,4 +64,23 @@ class DashboardBackendTest {
         assertThrows(IllegalStateException::class.java) { backend.saveSetting("douyin", true) }
         assertThrows(IllegalArgumentException::class.java) { backend.saveSetting("arbitrary", true) }
     }
+    @Test fun selectedTimHostIsPersistedAndReportedWithoutPretendingToBeQq() = runBlocking {
+        backend.selectHost("com.tencent.tim")
+        val snapshot = AndroidDashboardBackend(context).read()
+        assertEquals("com.tencent.tim", snapshot.hostPackage)
+        assertEquals("TIM", snapshot.hostLabel)
+        assertEquals("com.tencent.tim", snapshot.environment.packageName())
+        assertEquals("com.tencent.tim", JSONObject(snapshot.report()).getString("packageName"))
+        assertThrows(IllegalArgumentException::class.java) { backend.selectHost("com.tencent.tim.fake") }
+        Unit
+    }
+    @Test fun sameVersionQqReportCannotBeCurrentForTim() {
+        val framework = FrameworkSnapshot(true, "LSPosed", "2.2.1", 1, 102, true, true, FrameworkSnapshot.RuntimeState.CURRENT)
+        val snapshot = DashboardSnapshot(hostPackage = "com.tencent.tim", framework = framework, moduleCode = 10, qqCode = 16580,
+            healthJson = JSONObject().put("module", 10).put("qq", 16580).put("framework", "LSPosed 2.2.1").toString())
+        assertFalse(snapshot.current)
+        assertNull(snapshot.mounted)
+        assertTrue(snapshot.copy(healthJson = JSONObject(snapshot.healthJson).put("packageName", "com.tencent.tim").toString()).current)
+    }
+
 }

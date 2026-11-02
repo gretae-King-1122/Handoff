@@ -2,6 +2,7 @@ package com.handoff.storage;
 
 import android.content.Context;
 import android.os.Bundle;
+import com.handoff.api.HostApps;
 import com.handoff.api.health.HealthEvent;
 import com.handoff.api.health.HealthPolicy;
 import org.json.JSONArray;
@@ -13,13 +14,17 @@ import java.util.List;
 public final class HealthStore {
     private static final String PREFS = "handoff_health_v1";
     private HealthStore() { }
-    public static synchronized JSONObject read(Context context) {
-        try { return new JSONObject(context.getSharedPreferences(PREFS, 0).getString("data", "{}")); }
+    public static synchronized JSONObject read(Context context) { return read(context, HostApps.QQ); }
+    public static synchronized JSONObject read(Context context, String packageName) {
+        if (!HostApps.isSupported(packageName)) throw new IllegalArgumentException("Unknown host");
+        try { return new JSONObject(context.getSharedPreferences(PREFS, 0).getString(storageKey(packageName), "{}")); }
         catch (Exception ignored) { return new JSONObject(); }
     }
     public static synchronized void receive(Context context, Bundle input) {
         if (input == null || input.getInt("schema") != 1) throw new IllegalArgumentException("Unknown schema");
         try {
+            String packageName = input.getString("packageName", HostApps.QQ);
+            if (!HostApps.isSupported(packageName)) throw new IllegalArgumentException("Unknown host");
             var kind = HealthEvent.Kind.valueOf(input.getString("kind", ""));
             var entry = HealthEvent.Entry.valueOf(input.getString("entry", ""));
             var reason = HealthEvent.Reason.valueOf(input.getString("reason", ""));
@@ -31,7 +36,7 @@ public final class HealthStore {
             long now = System.currentTimeMillis();
             long occurred = input.getLong("at");
             if (occurred <= 0 || occurred > now + 5000) throw new IllegalArgumentException("Invalid event time");
-            JSONObject state = read(context);
+            JSONObject state = read(context, packageName);
             long started = input.getLong("startedAt", kind == HealthEvent.Kind.SESSION ? occurred : state.optLong("started", occurred));
             if (started <= 0 || started > occurred) throw new IllegalArgumentException("Invalid session time");
             if (kind == HealthEvent.Kind.SESSION) {
@@ -45,17 +50,17 @@ public final class HealthStore {
                     throw new IllegalArgumentException("Session environment changed");
             }
             state.put("started", started);
-            state.put("session", session).put("module", module).put("qq", qq).put("at", occurred)
+            state.put("packageName", packageName).put("session", session).put("module", module).put("qq", qq).put("at", occurred)
                     .put("framework", HealthPolicy.safe(input.getString("framework")))
                     .put("qqName", HealthPolicy.safe(input.getString("qqName")));
             JSONArray old = state.optJSONArray("events");
             JSONArray events = new JSONArray();
             if (old != null) for (int i = Math.max(0, old.length() - 95); i < old.length(); i++) events.put(old.get(i));
-            events.put(new JSONObject().put("at", occurred).put("module", module).put("qq", qq)
+            events.put(new JSONObject().put("packageName", packageName).put("at", occurred).put("module", module).put("qq", qq)
                     .put("framework", HealthPolicy.safe(input.getString("framework")))
                     .put("kind", kind.name()).put("entry", entry.name()).put("reason", reason.name()));
             state.put("events", events);
-            if (!context.getSharedPreferences(PREFS, 0).edit().putString("data", state.toString()).commit())
+            if (!context.getSharedPreferences(PREFS, 0).edit().putString(storageKey(packageName), state.toString()).commit())
                 throw new IllegalStateException("Storage unavailable");
         } catch (IllegalArgumentException error) { throw error; }
         catch (Exception error) { throw new IllegalArgumentException("Invalid typed report"); }
@@ -69,11 +74,12 @@ public final class HealthStore {
                 result.add(new HealthPolicy.Evidence(e.getLong("at"), e.getLong("module"), e.getLong("qq"),
                         new HealthEvent(HealthEvent.Kind.valueOf(e.getString("kind")),
                                 HealthEvent.Entry.valueOf(e.getString("entry")), HealthEvent.Reason.valueOf(e.getString("reason"))),
-                        e.optString("framework", "unknown")));
+                        e.optString("framework", "unknown"), e.optString("packageName", HostApps.QQ)));
             } catch (Exception ignored) { }
         }
         return List.copyOf(result);
     }
+    private static String storageKey(String packageName) { return HostApps.QQ.equals(packageName) ? "data" : "data:" + packageName; }
     public static synchronized void clear(Context context) {
         if (!context.getSharedPreferences(PREFS, 0).edit().clear().commit())
             throw new IllegalStateException("Storage unavailable");

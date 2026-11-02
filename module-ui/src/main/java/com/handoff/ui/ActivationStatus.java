@@ -3,6 +3,14 @@ package com.handoff.ui;
 /** Never infer activation from a version profile, a historical event, or just a service connection. */
 record ActivationStatus(String title, String detail, boolean active) {
     static ActivationStatus resolve(boolean checked, FrameworkSnapshot framework) {
+        return resolve(checked, framework, "com.tencent.mobileqq");
+    }
+    static ActivationStatus resolve(boolean checked, FrameworkSnapshot framework, String packageName) {
+        ActivationStatus result = resolveQq(checked, framework);
+        String host = com.handoff.api.HostApps.label(packageName);
+        return new ActivationStatus(result.title().replace("QQ", host), result.detail().replace("QQ", host), result.active());
+    }
+    private static ActivationStatus resolveQq(boolean checked, FrameworkSnapshot framework) {
         if (!checked) return new ActivationStatus("正在检查激活状态", "正在读取框架连接、QQ 作用域和运行状态。", false);
         if (!framework.connected()) return new ActivationStatus("未确认激活", "未连接兼容的 LSPosed 框架。请在框架管理器启用 Handoff；未连接不等于没有 root。", false);
         if (!framework.scopeKnown()) return new ActivationStatus("激活状态未知", "框架已连接，但无法读取 QQ 作用域。请在框架管理器检查。", false);

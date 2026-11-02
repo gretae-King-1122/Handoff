@@ -1,5 +1,6 @@
 package com.handoff.ui;
 
+import com.handoff.api.HostApps;
 import io.github.libxposed.service.HookedTarget;
 import io.github.libxposed.service.XposedService;
 import java.util.List;
@@ -18,9 +19,13 @@ record FrameworkSnapshot(boolean connected, String name, String version, long ve
         return new FrameworkSnapshot(false, "未知", "未知", 0, 0, false, false, RuntimeState.UNKNOWN);
     }
     String label() { return connected ? name + " " + version : "unknown"; }
-    String scopeLabel() { return !scopeKnown ? "未知" : scoped ? "已勾选 QQ" : "未勾选 QQ"; }
+    String scopeLabel() { return scopeLabel(HostApps.QQ); }
+    String scopeLabel(String packageName) { return !scopeKnown ? "未知" : (scoped ? "已勾选 " : "未勾选 ") + HostApps.label(packageName); }
 
     static FrameworkSnapshot read(XposedService service, long moduleCode) {
+        return read(service, moduleCode, HostApps.QQ);
+    }
+    static FrameworkSnapshot read(XposedService service, long moduleCode, String packageName) {
         if (service == null) return unavailable();
         return read(new Source() {
             public String name() { return service.getFrameworkName(); }
@@ -33,26 +38,32 @@ record FrameworkSnapshot(boolean connected, String name, String version, long ve
                         new Target(t.getProcessName(), t.getLoadedVersionCode(), t.getState()))
                         .collect(java.util.stream.Collectors.toList());
             }
-        }, moduleCode);
+        }, moduleCode, packageName);
     }
     static FrameworkSnapshot read(Source source, long moduleCode) {
+        return read(source, moduleCode, HostApps.QQ);
+    }
+    static FrameworkSnapshot read(Source source, long moduleCode, String packageName) {
         String name, version; long versionCode; int api;
         try {
             name = source.name(); version = source.version(); versionCode = source.versionCode(); api = source.api();
         } catch (RuntimeException | LinkageError error) { return unavailable(); }
         boolean known = false, scoped = false;
-        try { scoped = source.scope().contains("com.tencent.mobileqq"); known = true; }
+        try { scoped = source.scope().contains(packageName); known = true; }
         catch (RuntimeException | LinkageError ignored) { }
         RuntimeState runtime = RuntimeState.UNKNOWN;
-        if (api >= 102) try { runtime = runtime(source.targets(), moduleCode); }
+        if (api >= 102) try { runtime = runtime(source.targets(), moduleCode, packageName); }
         catch (RuntimeException | LinkageError ignored) { }
         return new FrameworkSnapshot(true, name, version, versionCode, api, known, scoped, runtime);
     }
     static RuntimeState runtime(List<Target> targets, long moduleCode) {
+        return runtime(targets, moduleCode, HostApps.QQ);
+    }
+    static RuntimeState runtime(List<Target> targets, long moduleCode, String packageName) {
         RuntimeState result = RuntimeState.NOT_RUNNING;
         for (Target t : targets) {
             // The mini-app subprocess does not prove the main-process hooks are loaded.
-            if (!"com.tencent.mobileqq".equals(t.process())) continue;
+            if (!packageName.equals(t.process())) continue;
             if (moduleCode > 0 && t.moduleCode() == moduleCode && t.state() == HookedTarget.State.UP_TO_DATE)
                 return RuntimeState.CURRENT;
             result = t.state() == HookedTarget.State.RELOADING ? RuntimeState.RELOADING : RuntimeState.OUTDATED;

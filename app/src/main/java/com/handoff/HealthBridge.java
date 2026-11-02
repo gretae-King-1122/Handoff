@@ -7,6 +7,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import com.handoff.api.health.HealthEvent;
 import com.handoff.api.health.QqAdapters;
+import com.handoff.api.HostApps;
 import io.github.libxposed.api.XposedInterface;
 import java.util.ArrayDeque;
 import java.util.UUID;
@@ -14,11 +15,12 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-/** One bounded, background, typed report channel per main QQ process. Failure never delays a launch. */
+/** One bounded, background, typed report channel per supported host main process. */
 final class HealthBridge {
     private record Pending(HealthEvent event, long at) { }
     private final XposedInterface xposed;
     private final boolean main;
+    private final String packageName;
     private final String session = UUID.randomUUID().toString();
     private final long startedAt = System.currentTimeMillis();
     private final ArrayDeque<Pending> pending = new ArrayDeque<>();
@@ -32,15 +34,17 @@ final class HealthBridge {
     private volatile QqAdapters.Profile profile = QqAdapters.resolve(-1);
 
     HealthBridge(XposedInterface xposed, String process) {
-        this.xposed = xposed; main = "com.tencent.mobileqq".equals(process);
+        this.xposed = xposed; main = HostApps.isMainProcess(process);
+        packageName = HostApps.packageForProcess(process);
+        if (packageName != null) profile = QqAdapters.resolve(packageName, -1);
         if (main) event(HealthEvent.of(HealthEvent.Kind.SESSION, HealthEvent.Entry.SYSTEM));
     }
     synchronized void bind(Application app) {
-        if (!main || context != null) return;
+        if (!main || context != null || !packageName.equals(app.getPackageName())) return;
         try {
-            var info = app.getPackageManager().getPackageInfo("com.tencent.mobileqq", 0);
+            var info = app.getPackageManager().getPackageInfo(packageName, 0);
             qq = android.os.Build.VERSION.SDK_INT >= 28 ? info.getLongVersionCode() : info.versionCode;
-            qqName = info.versionName; profile = QqAdapters.resolve(qq);
+            qqName = info.versionName; profile = QqAdapters.resolve(packageName, qq);
         } catch (Exception ignored) { }
         context = app.getApplicationContext();
         while (!pending.isEmpty()) send(pending.removeFirst());
@@ -68,6 +72,7 @@ final class HealthBridge {
                 data.putInt("schema", 1); data.putString("session", session);
                 data.putLong("at", message.at()); data.putLong("startedAt", startedAt);
                 data.putLong("module", BuildConfig.VERSION_CODE);
+                data.putString("packageName", packageName);
                 data.putLong("qq", qq); data.putString("qqName", qqName);
                 data.putString("framework", xposed.getFrameworkName() + " " + xposed.getFrameworkVersion());
                 data.putString("kind", message.event().kind().name()); data.putString("entry", message.event().entry().name());

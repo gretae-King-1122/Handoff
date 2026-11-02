@@ -90,7 +90,7 @@ final class MiniAppHandoff {
             return false;
         }
         // No lifecycle shortcuts or invented callback result; QQ still owns its caller's cleanup.
-        info(reporter, "HANDOFF blocked QQ mini id=" + video.id() + " source=" + video.source()
+        info(reporter, "HANDOFF blocked host mini package=" + reporter.profile().packageName() + " id=" + video.id() + " source=" + video.source()
                 + " entry=" + entry + " via " + how
                 + " launchUs=" + (SystemClock.elapsedRealtimeNanos() - start) / 1_000);
         HealthReports.emit(reporter, HealthEvent.Kind.ACCEPTED,

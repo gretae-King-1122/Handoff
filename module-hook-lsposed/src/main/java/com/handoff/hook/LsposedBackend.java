@@ -8,6 +8,7 @@ import java.lang.reflect.Method;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.handoff.api.EventSink;
+import com.handoff.api.HostApps;
 import com.handoff.api.HookBackend;
 
 import io.github.libxposed.api.XposedInterface;
@@ -56,7 +57,7 @@ public final class LsposedBackend implements HookBackend {
 
     @Override
     public void install(ClassLoader classLoader, String processName, EventSink sink) {
-        if ("com.tencent.mobileqq".equals(processName)) {
+        if (HostApps.isMainProcess(processName)) {
             step("RuntimeApplicationBinding", () -> observeApplication(processName, sink));
         }
         step("PackageLoaderBinding", () -> BINDINGS.install(classLoader,
@@ -71,10 +72,10 @@ public final class LsposedBackend implements HookBackend {
                     BINDINGS.beforeApplication(() -> {
                         Application app = chain.getArgs().get(0) instanceof Application
                                 ? (Application) chain.getArgs().get(0) : null;
-                        if (app != null && "com.tencent.mobileqq".equals(app.getPackageName())) {
+                        if (app != null && processName.equals(app.getPackageName())) {
                             try { reporter.applicationReady(app); } catch (Throwable ignored) { }
                         }
-                        return app != null && "com.tencent.mobileqq".equals(app.getPackageName())
+                        return app != null && processName.equals(app.getPackageName())
                                 ? app.getClassLoader() : null;
                     }, loader -> {
                         info("HANDOFF binding actual Application loader=" + loader.getClass().getName());
@@ -109,7 +110,7 @@ public final class LsposedBackend implements HookBackend {
                 case STRUCT -> step("M1.8 StructProbe", () -> StructProbe.install(xposed, classLoader, reporter));
             }
         }
-        if (boundaryDiagnostics && "com.tencent.mobileqq".equals(processName)) {
+        if (boundaryDiagnostics && HostApps.isMainProcess(processName)) {
             step("MiniBoundaryProbe", () -> MiniBoundaryProbe.install(xposed, classLoader, reporter));
         }
         info("HANDOFF runtime diagnostics=" + diagnostics + " installUs="

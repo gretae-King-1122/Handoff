@@ -5,6 +5,17 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class HealthPolicyTest {
+    @Test void reportsAndRegressionEvidenceAreBoundToTheActualHost() {
+        var tim = new HealthPolicy.Environment(5, 4050, 36, "device", "LSPosed", "com.tencent.tim");
+        var qqSameVersion = new HealthPolicy.Environment(5, 4050, 36, "device", "LSPosed");
+        var signal = new HealthPolicy.Evidence(101, 5, 4050,
+                HealthEvent.of(HealthEvent.Kind.ACCEPTED, HealthEvent.Entry.BROWSER), "LSPosed", "com.tencent.tim");
+        assertNotEquals(tim.key(), qqSameVersion.key());
+        assertTrue(HealthPolicy.mayConfirm(HealthPolicy.Case.WEB, 100, tim, List.of(signal)));
+        assertFalse(HealthPolicy.mayConfirm(HealthPolicy.Case.WEB, 100, qqSameVersion, List.of(signal)));
+        assertTrue(HealthPolicy.mayReport(2, 1, new String[]{"com.tencent.tim"}));
+        assertFalse(HealthPolicy.mayReport(2, 1, new String[]{"com.tencent.tim.fake"}));
+    }
     private final HealthPolicy.Environment environment = new HealthPolicy.Environment(5, 16580, 36, "PJD110", "LSPosed 2.2.1");
     private HealthPolicy.Evidence event(long at, long module, long qq, HealthEvent.Kind kind, HealthEvent.Entry entry) {
         return new HealthPolicy.Evidence(at, module, qq, HealthEvent.of(kind, entry), environment.framework());

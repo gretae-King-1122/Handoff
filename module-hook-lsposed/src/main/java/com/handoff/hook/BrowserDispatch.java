@@ -54,7 +54,7 @@ final class BrowserDispatch {
     }
     static String videoId(String receiverClass, String targetPackage, String targetClass, String url, QqAdapters.Contract contract) {
         if (!contract.browserCaller().equals(receiverClass)
-                || !"com.tencent.mobileqq".equals(targetPackage)
+                || !contract.packageName().equals(targetPackage)
                 || targetClass == null || !contract.browsers().contains(targetClass) || url == null) return null;
         try {
             URI uri = new URI(url);

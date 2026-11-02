@@ -22,7 +22,7 @@ final class MiniContainerDispatch {
         if (envelope == null || envelope.caller() == null
                 || !contract.miniCaller().equals(envelope.caller().className())
                 || envelope.caller().destroyed()
-                || !"com.tencent.mobileqq".equals(envelope.targetPackage())
+                || !contract.packageName().equals(envelope.targetPackage())
                 || envelope.requestCode() >= 0 || envelope.forwardsResult() || envelope.hasSelector()) return false;
         return contract.containers().contains(envelope.targetClass());
     }

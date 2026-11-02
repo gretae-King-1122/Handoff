@@ -2,6 +2,7 @@ package com.handoff.ui
 
 import android.os.Build
 import androidx.compose.ui.graphics.ImageBitmap
+import com.handoff.api.HostApps
 import com.handoff.api.health.HealthEvent
 import com.handoff.api.health.HealthPolicy
 import org.json.JSONArray
@@ -9,7 +10,7 @@ import org.json.JSONObject
 
 internal data class RegressionRun(
     val started: Long, val environment: String, val qq: Long, val android: Int,
-    val model: String, val framework: String, val module: Long, val results: Map<String, String>,
+    val model: String, val framework: String, val module: Long, val results: Map<String, String>, val packageName: String = HostApps.QQ,
 ) {
     val passed get() = results.values.count { it == "PASS" }
     val failed get() = results.values.count { it == "FAIL" }
@@ -18,6 +19,8 @@ internal data class RegressionRun(
 
 internal data class DashboardSnapshot(
     val checked: Boolean = false,
+    val hostPackage: String = HostApps.QQ,
+    val hostVersions: Map<String, String> = emptyMap(),
     val framework: FrameworkSnapshot = FrameworkSnapshot.unavailable(),
     val moduleCode: Long = 0, val moduleName: String = "—",
     val qqCode: Long = 0, val qqName: String = "未安装",
@@ -27,14 +30,15 @@ internal data class DashboardSnapshot(
     val healthJson: String = "{}", val runsJson: String = "[]",
     val evidence: List<HealthPolicy.Evidence> = emptyList(), val runs: List<RegressionRun> = emptyList(),
 ) {
-    val activation: ActivationStatus get() = ActivationStatus.resolve(checked, framework)
+    val hostLabel: String get() = HostApps.label(hostPackage)
+    val activation: ActivationStatus get() = ActivationStatus.resolve(checked, framework, hostPackage)
     val environment: HealthPolicy.Environment get() = HealthPolicy.Environment(
-        moduleCode, qqCode, Build.VERSION.SDK_INT, Build.MODEL, HealthPolicy.safe(framework.label()),
+        moduleCode, qqCode, Build.VERSION.SDK_INT, Build.MODEL, HealthPolicy.safe(framework.label()), hostPackage,
     )
     val current: Boolean get() {
         val health = JSONObject(healthJson)
         return framework.connected() && moduleCode > 0 && qqCode > 0 &&
-            health.optLong("module") == moduleCode && health.optLong("qq") == qqCode &&
+            health.optString("packageName", HostApps.QQ) == hostPackage && health.optLong("module") == moduleCode && health.optLong("qq") == qqCode &&
             health.optString("framework") == HealthPolicy.safe(framework.label())
     }
     val mounted: Int? get() = if (!current) null else evidence
@@ -55,9 +59,9 @@ internal data class DashboardSnapshot(
         }
     }
     fun report(): String = JSONObject().put("schema", 1).put("moduleVersion", moduleName)
-        .put("environment", environment.key()).put("scope", framework.scopeLabel())
+        .put("packageName", hostPackage).put("environment", environment.key()).put("scope", framework.scopeLabel(hostPackage))
         .put("events", JSONObject(healthJson).optJSONArray("events") ?: JSONArray())
-        .put("runs", JSONArray(runsJson)).put("adapter", com.handoff.api.health.QqAdapters.resolve(qqCode).id())
+        .put("runs", JSONArray(runsJson)).put("adapter", com.handoff.api.health.QqAdapters.resolve(hostPackage, qqCode).id())
         .put("notice", "交接记录不等于视频加载成功；负向结果为手动确认；不包含聊天、链接、视频ID或设备序列号。")
         .toString(2)
 }
@@ -75,6 +79,7 @@ internal interface DashboardActions {
     fun setReduceMotion(reduce: Boolean) {}
     fun setSetting(key: String, enabled: Boolean) {}
     fun requestScope() {}
+    fun selectHost(packageName: String) {}
     fun startRun() {}
     fun mark(test: HealthPolicy.Case, result: String) {}
     fun clearDiagnostics() {}

@@ -16,7 +16,7 @@ public final class RegressionStore {
         try {
             JSONArray old = read(context), runs = new JSONArray();
             runs.put(new JSONObject().put("started", System.currentTimeMillis()).put("environment", env.key())
-                    .put("module", env.module()).put("qq", env.qq()).put("android", env.android())
+                    .put("packageName", env.packageName()).put("module", env.module()).put("qq", env.qq()).put("android", env.android())
                     .put("model", HealthPolicy.safe(env.model())).put("framework", HealthPolicy.safe(env.framework()))
                     .put("results", new JSONObject()));
             for (int i = 0; i < Math.min(19, old.length()); i++) runs.put(old.get(i));
@@ -28,10 +28,15 @@ public final class RegressionStore {
         try {
             JSONArray runs = read(context);
             if (runs.length() == 0) throw new IllegalStateException("Start a run first");
-            JSONObject run = runs.getJSONObject(0);
+            JSONObject run = null;
+            for (int i = 0; i < runs.length(); i++) {
+                JSONObject candidate = runs.getJSONObject(i);
+                if (env.packageName().equals(candidate.optString("packageName", com.handoff.api.HostApps.QQ))) { run = candidate; break; }
+            }
+            if (run == null) throw new IllegalStateException("Start a run for this host first");
             if (!env.key().equals(run.getString("environment"))) throw new IllegalStateException("Environment changed; start again");
             if ("PASS".equals(result) && !HealthPolicy.mayConfirm(test, run.getLong("started"), env,
-                    HealthStore.evidence(HealthStore.read(context)))) throw new IllegalStateException("No matching fresh handoff evidence");
+                    HealthStore.evidence(HealthStore.read(context, env.packageName())))) throw new IllegalStateException("No matching fresh handoff evidence");
             run.getJSONObject("results").put(test.name(), result);
             save(context, runs);
         } catch (IllegalStateException error) { throw error; }

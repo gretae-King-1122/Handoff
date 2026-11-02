@@ -35,8 +35,8 @@ private const val PROJECT_URL = "https://github.com/gretae-King-1122/Handoff"
                 Badge(if (data.moduleCode > 0) "v${data.moduleName} · ${data.moduleCode}" else "版本信息暂不可用")
             }
         }
-        Text("QQ 负责聊天，链接回到对应 App。", style = MaterialTheme.typography.titleMedium)
-        QuietText("一个轻量的 LSPosed 模块，将 QQ 中支持的哔哩哔哩、抖音和快手视频链接交给对应的国内版 App。")
+        Text("QQ / TIM 负责聊天，链接回到对应 App。", style = MaterialTheme.typography.titleMedium)
+        QuietText("一个轻量的 LSPosed 模块，将 QQ / TIM 中支持的哔哩哔哩、抖音和快手视频链接交给对应的国内版 App。")
         Panel(padding = 0.dp, spacing = 0.dp) {
             AboutLink("项目主页", "github.com/gretae-King-1122/Handoff", "about-project") { openLink(PROJECT_URL) }
             HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)

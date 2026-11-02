@@ -1,6 +1,7 @@
 package com.handoff.hook;
 
 import java.util.List;
+import com.handoff.api.HostApps;
 
 /** Keep discovery-only work out of the normal handoff path; shared by installation and tests. */
 final class HookPlan {
@@ -14,10 +15,10 @@ final class HookPlan {
     private HookPlan() { }
 
     static List<Step> steps(String process, boolean diagnostics) {
-        boolean main = "com.tencent.mobileqq".equals(process);
+        boolean main = HostApps.isMainProcess(process);
         if (main) return diagnostics ? DIAGNOSTIC_MAIN : NORMAL_MAIN;
         // Unknown / unrelated processes aren't assumed to be QQ's main process.
-        if (diagnostics && process != null && process.startsWith("com.tencent.mobileqq:")) return DIAGNOSTIC_AUX;
+        if (diagnostics && HostApps.packageForProcess(process) != null) return DIAGNOSTIC_AUX;
         return List.of();
     }
 }

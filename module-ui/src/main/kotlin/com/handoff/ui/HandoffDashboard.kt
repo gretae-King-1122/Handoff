@@ -130,9 +130,9 @@ import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
             val title = when (id) { "start" -> "新建测试记录？"; "clear-health" -> "清除诊断记录？"; "clear-runs" -> "清除全部测试记录？"; else -> "确认「${test?.title}」通过？" }
             val detail = when (id) {
                 "start" -> "保留历史记录。新的六项测试均为未验证，正向通过需要本轮实际交接信号，并由你确认结果。"
-                "clear-health" -> "仅清除本机诊断，不清理 QQ 数据或测试记录。后续信号仍可继续上报。"
-                "clear-runs" -> "将清除本机全部测试记录，不影响 QQ 或模块设置。"
-                else -> if (test?.needsEvidence == true) "请确认已打开对应作品，并且没有并行打开 QQ 内容。交接信号不能代替你的页面确认。" else "这是一条手动确认记录，不代表模块自动验证了负向结果。"
+                "clear-health" -> "仅清除本机诊断，不清理 QQ / TIM 数据或测试记录。后续信号仍可继续上报。"
+                "clear-runs" -> "将清除本机全部测试记录，不影响 QQ / TIM 或模块设置。"
+                else -> if (test?.needsEvidence == true) "请确认已打开对应作品，并且没有并行打开聊天应用内容。交接信号不能代替你的页面确认。" else "这是一条手动确认记录，不代表模块自动验证了负向结果。"
             }
             AlertDialog(onDismissRequest = { confirmation = null }, title = { Text(title) }, text = { Text(detail, Modifier.verticalScroll(rememberScrollState())) },
                 dismissButton = { TextButton({ confirmation = null }) { Text("取消") } },

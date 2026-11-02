@@ -46,10 +46,10 @@ internal fun LazyListScope.settingsPage(state: DashboardState, actions: Dashboar
             DashboardSwitch(state.reduceMotion, actions::setReduceMotion, enabled = !state.appearanceSaving,
                 modifier = Modifier.testTag("reduce-motion").semantics { stateDescription = if (state.reduceMotion) "已减少动画" else "跟随系统动画" })
         }
-        QuietText("两种风格均跟随系统浅色／深色。切换即刻生效，无需重启 QQ。")
+        QuietText("两种风格均跟随系统浅色／深色。切换即刻生效，无需重启 ${data.hostLabel}。")
     } }
     item("master") { Panel {
-        SectionTitle("交接控制", if (data.settingsReadable) "修改后强停重开 QQ，确保当前进程应用设置" else if (data.framework.connected()) "设置读取失败，当前值未知；开关只读" else "框架未连接，当前值未知；开关只读")
+        SectionTitle("交接控制", if (data.settingsReadable) "修改后强停重开 ${data.hostLabel}，确保当前进程应用设置" else if (data.framework.connected()) "设置读取失败，当前值未知；开关只读" else "框架未连接，当前值未知；开关只读")
         SettingSwitch("交接总开关", "所有支持入口的总控制", "enabled", state, actions)
     } }
     item("bilibili") { Panel {
@@ -61,12 +61,12 @@ internal fun LazyListScope.settingsPage(state: DashboardState, actions: Dashboar
     items(HealthEvent.Entry.entries.filter { it == HealthEvent.Entry.DOUYIN || it == HealthEvent.Entry.KUAISHOU }, key = { "pilot-${it.key}" }) { entry ->
         Panel {
             Badge("可选试验", Color(0xFFAC7B39))
-            SettingSwitch(entry.title, if (entry == HealthEvent.Entry.DOUYIN) "短链由国内抖音处理，失败不降级到首页" else "作品与短链交给国内快手，解析失败返回 QQ 浏览器", entry.key, state, actions)
+            SettingSwitch(entry.title, if (entry == HealthEvent.Entry.DOUYIN) "短链由国内抖音处理，失败不降级到首页" else "作品与短链交给国内快手，解析失败返回 ${data.hostLabel} 浏览器", entry.key, state, actions)
             QuietText(if (entry == HealthEvent.Entry.KUAISHOU) "v.kuaishou.com 短链在后台进行受限 HTTPS 解析，可按返回键取消；请求被接受不代表已打开作品。" else "默认关闭，与快手开关独立；实际是否打开对应作品需要手动确认。")
         }
     }
-    item("adapter") { ExpandablePanel("适配管理", QqAdapters.resolve(data.qqCode).title(), "expand-adapters") {
-        QqAdapters.profiles().forEach { profile ->
+    item("adapter") { ExpandablePanel("适配管理", QqAdapters.resolve(data.hostPackage, data.qqCode).title(), "expand-adapters") {
+        QqAdapters.profiles().filter { it.packageName() == data.hostPackage }.forEach { profile ->
             Text(profile.title(), style = MaterialTheme.typography.titleMedium)
             QuietText(profile.evidence())
             Badge(if (profile.observed()) "有开发记录" else "未完整验证", MaterialTheme.colorScheme.onSurfaceVariant)
@@ -130,7 +130,7 @@ internal fun LazyListScope.regressionPage(state: DashboardState, actions: Dashbo
     item("heading") { PageHeading(DashboardPage.REGRESSION, "手动测试并记录交接结果，运行信号请查看诊断页。") }
     item("environment") { Panel {
         Badge("当前测试环境")
-        Text("QQ ${data.qqName}", style = MaterialTheme.typography.titleLarge)
+        Text("${data.hostLabel} ${data.qqName}", style = MaterialTheme.typography.titleLarge)
         QuietText("Android ${android.os.Build.VERSION.RELEASE} · ${android.os.Build.MODEL}\n${if (data.framework.connected()) data.framework.label() else "框架未知"}")
         DashboardPrimaryButton({ confirm("start") }, Modifier.fillMaxWidth().testTag("start-run"), enabled = !state.busy) { Text("新建测试记录") }
     } }
@@ -141,7 +141,7 @@ internal fun LazyListScope.regressionPage(state: DashboardState, actions: Dashbo
         }
         Text("好的记录，从第一次确认开始", style = MaterialTheme.typography.titleLarge)
         Text("还没有测试轮次。新一轮的六项测试都会从未验证开始。", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        QuietText("每轮绑定当前 QQ、Android、框架与模块版本；不会预填开发设备的结果。")
+        QuietText("每轮绑定当前 ${data.hostLabel}、Android、框架与模块版本；不会预填开发设备的结果。")
     } } else {
         val same = run.environment == data.environment.key()
         item("progress") { Panel {
@@ -161,7 +161,7 @@ internal fun LazyListScope.regressionPage(state: DashboardState, actions: Dashbo
                     Text(test.title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
                     Badge(resultLabel(run.results[test.name]), if (run.results[test.name] == "FAIL") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
                 }
-                Text(test.instruction, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(test.instruction.replace("QQ", data.hostLabel), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 QuietText(if (test.needsEvidence) "通过需要本轮交接信号，并由你确认实际结果" else "手动确认负向结果，模块不会自动判定")
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     OutlinedButton({ confirm("pass:${test.name}") }, enabled = same && !state.busy, modifier = Modifier.testTag("pass-${test.name}")) { Text("通过") }
@@ -170,12 +170,12 @@ internal fun LazyListScope.regressionPage(state: DashboardState, actions: Dashbo
                 }
             }
         }
-        item("open-qq") { DashboardPrimaryButton(actions::openQq, Modifier.fillMaxWidth()) { Text("打开 QQ，执行测试") } }
+        item("open-qq") { DashboardPrimaryButton(actions::openQq, Modifier.fillMaxWidth()) { Text("打开 ${data.hostLabel}，执行测试") } }
     }
     if (data.runs.isNotEmpty()) item("history") { ExpandablePanel("环境历史", "本机 ${data.runs.size} 轮 · 最多保留 20 轮", "expand-history") {
         data.runs.take(20).forEach { old ->
             Text(timeLabel(old.started, true), style = MaterialTheme.typography.titleMedium)
-            QuietText("QQ ${old.qq} / API ${old.android} / ${old.model}\n${old.framework} / 模块 ${old.module}\n通过 ${old.passed} · 未通过 ${old.failed} · 其余未验证或跳过")
+            QuietText("${com.handoff.api.HostApps.label(old.packageName)} ${old.qq} / API ${old.android} / ${old.model}\n${old.framework} / 模块 ${old.module}\n通过 ${old.passed} · 未通过 ${old.failed} · 其余未验证或跳过")
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
     } }

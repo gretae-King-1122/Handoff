@@ -1,8 +1,8 @@
 <div align="center">
   <img src="assets/icon.png" width="120" height="120" alt="Handoff 应用图标" />
   <h1>Handoff</h1>
-  <p><strong>QQ 负责聊天，链接回到对应 App。</strong></p>
-  <p>把 QQ 中支持的 B 站、抖音和快手视频链接，交给对应 App。</p>
+  <p><strong>QQ / TIM 负责聊天，链接回到对应 App。</strong></p>
+  <p>把 QQ / TIM 中支持的 B 站、抖音和快手视频链接，交给对应 App。</p>
   <p>
     <a href="https://github.com/gretae-King-1122/Handoff/releases/latest"><img src="https://img.shields.io/github/v/release/gretae-King-1122/Handoff?label=Release&amp;logo=github&amp;color=008597" alt="Latest release" /></a>
     <a href="#环境要求"><img src="https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&amp;logoColor=white" alt="Android 8.0+ 编译下限" /></a>
@@ -19,7 +19,7 @@
 
 ## 简介
 
-Handoff 是一个轻量 LSPosed 模块。点击 QQ 中支持的视频卡片或链接时，
+Handoff 是一个轻量 LSPosed 模块。点击 QQ / TIM 中支持的视频卡片或链接时，
 交给国内版 B 站、抖音或快手 App；保留原有外跳确认。抖音／快手交接默认关闭，可独立开启。
 
 | 能力 | 说明 |
@@ -31,6 +31,19 @@ Handoff 是一个轻量 LSPosed 模块。点击 QQ 中支持的视频卡片或�
 
 **当前正式版：[v0.8.1](https://github.com/gretae-King-1122/Handoff/releases/tag/v0.8.1)。**
 219 项 JVM／Robolectric 测试、Debug／Release 构建及应用／UI 模块 Release lint 检查通过。
+
+> **当前源码为 v0.9.0-dev（未发布）**：新增 TIM `com.tencent.tim` 支持，依据本地 TIM 4.1.0 / 4050 APK 核对浏览器与小程序入口，已有下述有限实机反馈，不代表全部场景验收通过。首页可切换 QQ / TIM，分别查看版本、作用域、激活和诊断；交接开关共用。启用方式及静态证据见 [TIM 支持说明](TIM_SUPPORT.md)。上方 v0.8.1 下载及历史验证数据不包含此改动。
+
+### TIM 实机反馈与已知限制（2026-11-02）
+
+当前开发包已安装到 PGZ110，以下为用户实机测试反馈；卡片按界面上的标识区分，不据此推断内部消息类型：
+
+| TIM 中的卡片标识 | 实机观察 |
+| --- | --- |
+| 带「QQ 小程序」标识的卡片 | 用户确认可以点击；不据此宣称全部卡片或对应视频交接均已通过 |
+| 带「哔哩哔哩」标识的卡片 | **开启和关闭 Handoff 模块时，均提示「请到最新版QQ使用」** |
+
+上述提示在模块开启、关闭两种状态下都出现，尚未定位具体原因；当前模块**没有解决或绕过该提示**。请勿将此类卡片列为 TIM 已支持／已验证成功的入口；其他入口、设备及 TIM 版本仍需分别验证。
 
 > v0.8.1 仅发布 `main` 的 Compose 新界面与原有 B 站／抖音／快手交接功能，**不包含** `dynamic-link-handoff` 分支的动态适配及 Hook 性能修复。从 v0.7.1-dev 升级后，这些试验功能不再提供；原有平台开关和数据保留。
 
@@ -138,7 +151,7 @@ ClassLoader 补挂正常交接入口；按 Loader 身份和反射 Method 的真�
 - 真机验证环境：OPPO PGZ110／PJD110、QQ 9.3.75、LSPosed 2.2.1 / API 102。
 - 2026-10-29 小程序诊断设备实际报告 QQ 9.3.5（versionCode 14540）：已确认上述四参数签名可挂载，
   视频 ID 在启动前可见；这不等于修复包已通过该版本的真机回归。
-- 安装国内版哔哩哔哩，并为模块勾选 QQ `com.tencent.mobileqq` 作用域。
+- 安装对应的国内版目标 App，并为模块勾选 QQ `com.tencent.mobileqq` 和／或 TIM `com.tencent.tim` 作用域；TIM 适配基准为 4.1.0 / 4050，仅有上文有限实机反馈，尚未完成全流程验收。
 
 ## 获取 APK
 
@@ -153,10 +166,10 @@ ClassLoader 补挂正常交接入口；按 Loader 身份和反射 Method 的真�
 
 1. 安装自行构建或 Releases 中的 APK。
 2. 打开 LSPosed → 模块 → 启用 **Handoff**。
-3. 作用域勾选 **QQ**，不需要勾选 B 站或系统框架。
-4. 强制停止 QQ，再重新打开。
-5. 如需抖音／快手交接，在 Handoff 设置中独立开启对应试验开关，再强停重开 QQ；只开启抖音不会自动开启快手。
-6. 在 QQ 中点击支持的视频卡片／链接，按原有弹窗确认外跳。
+3. 作用域勾选使用的 **QQ 和／或 TIM**，不需要勾选 B 站或系统框架（正式版 v0.8.1 不含 TIM，需使用当前源码构建）。
+4. 强制停止选中的 QQ／TIM，再重新打开；Handoff 首页切换到对应宿主检查状态。
+5. 如需抖音／快手交接，在 Handoff 设置中独立开启对应试验开关，再强停重开已启用的 QQ／TIM；两宿主共用开关，只开启抖音不会自动开启快手。
+6. 在 QQ／TIM 中点击支持的视频卡片／链接，按原有弹窗确认外跳。
 
 本版提供桌面入口和框架内的模块设置入口；启用模块仍需兼容的 LSPosed 框架。
 更新模块后也建议强停并重开 QQ；停用时同样操作。

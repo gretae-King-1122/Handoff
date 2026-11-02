@@ -3,6 +3,7 @@ package com.handoff;
 import android.util.Log;
 
 import com.handoff.api.HookBackend;
+import com.handoff.api.HostApps;
 import com.handoff.hook.LsposedBackend;
 
 import io.github.libxposed.api.XposedInterface;
@@ -18,7 +19,6 @@ import io.github.libxposed.api.XposedModuleInterface;
 public final class ModuleMain extends XposedModule {
 
     private static final String TAG = "Handoff";
-    private static final String QQ_PACKAGE = "com.tencent.mobileqq";
 
     private PipelineImpl pipeline;
     private String processName = "";
@@ -42,7 +42,8 @@ public final class ModuleMain extends XposedModule {
     public void onPackageReady(XposedModuleInterface.PackageReadyParam param) {
         if (param == null) return;
         try {
-            if (!QQ_PACKAGE.equals(param.getPackageName())) return;
+            if (!HostApps.isSupported(param.getPackageName())
+                    || !param.getPackageName().equals(HostApps.packageForProcess(processName))) return;
             if (pipeline == null) return;
 
             HookBackend backend = new LsposedBackend(this, pipeline.reporter(), BuildConfig.HANDOFF_DIAGNOSTICS,

@@ -1,12 +1,21 @@
 package com.handoff.api.health;
 
 import java.util.List;
+import com.handoff.api.HostApps;
 
 public final class HealthPolicy {
-    public record Environment(long module, long qq, int android, String model, String framework) {
-        public String key() { return module + ":" + qq + ":" + android + ":" + safe(model) + ":" + safe(framework); }
+    public record Environment(long module, long qq, int android, String model, String framework, String packageName) {
+        public Environment(long module, long qq, int android, String model, String framework) {
+            this(module, qq, android, model, framework, HostApps.QQ);
+        }
+        public String key() { return (HostApps.QQ.equals(packageName) ? "" : safe(packageName) + ":")
+                + module + ":" + qq + ":" + android + ":" + safe(model) + ":" + safe(framework); }
     }
-    public record Evidence(long at, long module, long qq, HealthEvent event, String framework) { }
+    public record Evidence(long at, long module, long qq, HealthEvent event, String framework, String packageName) {
+        public Evidence(long at, long module, long qq, HealthEvent event, String framework) {
+            this(at, module, qq, event, framework, HostApps.QQ);
+        }
+    }
     public enum Case {
         WEB("网页视频", "点击普通 B 站视频卡片；确认只交给 B 站，不并行打开 QQ 网页。", true),
         MINI("小程序视频", "点击 B 站小程序视频卡片；确认进入 B 站，而不是 QQ 小程序。", true),
@@ -23,8 +32,10 @@ public final class HealthPolicy {
     private HealthPolicy() { }
     public static boolean mayConfirm(Case test, long started, Environment environment, List<Evidence> evidence) {
         if (!test.needsEvidence) return true;
-        if (environment.qq() <= 0 || started <= 0 || "unknown".equals(environment.framework())) return false;
+        if (!HostApps.isSupported(environment.packageName()) || environment.qq() <= 0
+                || started <= 0 || "unknown".equals(environment.framework())) return false;
         return evidence.stream().anyMatch(e -> e.at() >= started && e.module() == environment.module()
+                && environment.packageName().equals(e.packageName())
                 && e.qq() == environment.qq() && e.event().kind() == HealthEvent.Kind.ACCEPTED
                 && safe(e.framework()).equals(safe(environment.framework()))
                 && (test == Case.DOUYIN ? e.event().entry() == HealthEvent.Entry.DOUYIN
@@ -35,7 +46,7 @@ public final class HealthPolicy {
     public static boolean mayReport(int callerUid, int ownUid, String[] packages) {
         if (callerUid == ownUid) return true;
         if (packages == null) return false;
-        for (String name : packages) if ("com.tencent.mobileqq".equals(name)) return true;
+        for (String name : packages) if (HostApps.isSupported(name)) return true;
         return false;
     }
     public static String safe(String value) {

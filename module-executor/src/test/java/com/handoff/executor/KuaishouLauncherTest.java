@@ -111,4 +111,17 @@ public class KuaishouLauncherTest {
         assertFalse(KuaishouLauncher.resolveShort(context, link, original().addFlags(Intent.FLAG_ACTIVITY_FORWARD_RESULT), null));
         assertEquals(0, context.calls);
     }
+
+    @Test public void timShortLinkFallbackReturnsOnlyToTimNotQq() {
+        RecordingContext tim = new RecordingContext() {
+            @Override public String getPackageName() { return "com.tencent.tim"; }
+        };
+        var link = new KuaishouLinkParser().parseUrl("https://v.kuaishou.com/Fixture123");
+        assertFalse(KuaishouLauncher.resolveShort(tim, link, original(), null));
+        Intent browser = original().setClassName("com.tencent.tim", "com.tencent.mobileqq.activity.QQBrowserActivity");
+        assertTrue(KuaishouLauncher.resolveShort(tim, link, browser, null));
+        android.app.PendingIntent fallback = tim.outgoing.getParcelableExtra(KuaishouResolveActivity.FALLBACK);
+        assertEquals(browser.getComponent(), org.robolectric.Shadows.shadowOf(fallback).getSavedIntent().getComponent());
+        assertFalse(KuaishouLauncher.resolveShort(new QqContext(), link, browser, null));
+    }
 }

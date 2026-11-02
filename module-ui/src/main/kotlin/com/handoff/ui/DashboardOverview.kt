@@ -30,7 +30,17 @@ import java.util.Locale
 
 internal fun LazyListScope.homePage(state: DashboardState, actions: DashboardActions, navigate: (DashboardPage) -> Unit, destination: (String) -> Unit) {
     val data = state.snapshot
-    item("heading") { PageHeading(DashboardPage.HOME, "链接交给对应 App，聊天留在 QQ。") }
+    item("heading") { PageHeading(DashboardPage.HOME, "链接交给对应 App，聊天留在 ${data.hostLabel}。") }
+    item("host") { Panel {
+        SectionTitle("聊天应用", "切换后分别检查版本、激活与诊断记录；交接开关共用")
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            listOf(com.handoff.api.HostApps.QQ, com.handoff.api.HostApps.TIM).forEach { host ->
+                FilterChip(data.hostPackage == host, { actions.selectHost(host) },
+                    label = { Text("${com.handoff.api.HostApps.label(host)} · ${data.hostVersions[host] ?: "未安装"}") },
+                    enabled = !state.busy, modifier = Modifier.testTag("host-$host"))
+            }
+        }
+    } }
     item("status") { ActivationHero(data) { navigate(DashboardPage.DIAGNOSTICS) } }
     item("stats") {
       if (LocalHandoffStyle.current == UiStyle.MIUIX) {
@@ -54,11 +64,11 @@ internal fun LazyListScope.homePage(state: DashboardState, actions: DashboardAct
     }
     if (data.checked && !data.activation.active()) item("setup") {
         ExpandablePanel("需要一点准备", "查看启用与检查步骤", "expand-setup") {
-            listOf("01" to "在兼容的 LSPosed 框架中启用 Handoff", "02" to "为模块勾选 QQ 作用域", "03" to "强停并重开 QQ，再返回查看状态").forEach { (number, text) ->
+            listOf("01" to "在兼容的 LSPosed 框架中启用 Handoff", "02" to "为模块勾选 ${data.hostLabel} 作用域", "03" to "强停并重开 ${data.hostLabel}，再返回查看状态").forEach { (number, text) ->
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) { Text(number, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge); Text(text, style = MaterialTheme.typography.bodyMedium) }
             }
             if (data.framework.connected() && data.framework.scopeKnown() && !data.framework.scoped()) {
-                FilledTonalButton(actions::requestScope, Modifier.fillMaxWidth()) { Text("申请 QQ 作用域") }
+                FilledTonalButton(actions::requestScope, Modifier.fillMaxWidth()) { Text("申请 ${data.hostLabel} 作用域") }
             }
         }
     }
@@ -69,13 +79,13 @@ internal fun LazyListScope.homePage(state: DashboardState, actions: DashboardAct
             InfoLine("框架版本", data.framework.version())
             InfoLine("框架版本号", if (data.framework.connected()) data.framework.versionCode().toString() else "未知")
             InfoLine("libxposed API", if (data.framework.connected()) data.framework.api().toString() else "未知")
-            InfoLine("QQ 作用域", data.framework.scopeLabel())
+            InfoLine("${data.hostLabel} 作用域", data.framework.scopeLabel(data.hostPackage))
         }
     }
     item("device") {
         ExpandablePanel("版本与设备", "所有信息仅保存在本机", "expand-device", initiallyExpanded = true) {
             InfoLine("Handoff", "v${data.moduleName} / ${data.moduleCode}")
-            InfoLine("QQ", "${data.qqName} / ${data.qqCode}")
+            InfoLine(data.hostLabel, "${data.qqName} / ${data.qqCode}")
             InfoLine("Android", "${Build.VERSION.RELEASE} / API ${Build.VERSION.SDK_INT}")
             InfoLine("设备型号", Build.MODEL)
             listOf("bilibili" to "哔哩哔哩", "douyin" to "抖音", "kuaishou" to "快手").forEach { (key, title) ->
@@ -83,7 +93,7 @@ internal fun LazyListScope.homePage(state: DashboardState, actions: DashboardAct
             }
         }
     }
-    item("notice") { QuietText("激活只表示当前模块已在 QQ 主进程加载；请手动确认是否打开对应作品，可在日志页记录结果、在诊断页查看运行信号。") }
+    item("notice") { QuietText("激活只表示当前模块已在 ${data.hostLabel} 主进程加载；请手动确认是否打开对应作品，可在日志页记录结果、在诊断页查看运行信号。") }
 }
 
 @Composable private fun ActivationHero(data: DashboardSnapshot, onInspect: () -> Unit) {
@@ -203,16 +213,16 @@ internal val destinations = listOf(
 }
 
 internal fun DashboardSnapshot.diagnosis(): Pair<String, String> = when {
-    qqCode == 0L -> "尚未发现 QQ" to "安装国内版 QQ 后，再为 Handoff 配置作用域。"
+    qqCode == 0L -> "尚未发现 ${hostLabel}" to "安装国内版 ${hostLabel} 后，再为 Handoff 配置作用域。"
     !framework.connected() -> "框架未连接" to "请检查兼容的 LSPosed 框架；未连接不等于设备没有 root。"
-    !framework.scopeKnown() -> "QQ 作用域未知" to "框架已连接，但作用域不可读，请到框架管理器检查。"
-    !framework.scoped() -> "需要 QQ 作用域" to "请授权模块在 QQ 中运行，再强停重开 QQ。"
-    !current -> "等待本版本上报" to "强停重开 QQ，再点击支持的卡片。旧环境记录不用于当前判断。"
+    !framework.scopeKnown() -> "${hostLabel} 作用域未知" to "框架已连接，但作用域不可读，请到框架管理器检查。"
+    !framework.scoped() -> "需要 ${hostLabel} 作用域" to "请授权模块在 ${hostLabel} 中运行，再强停重开 ${hostLabel}。"
+    !current -> "等待本版本上报" to "强停重开 ${hostLabel}，再点击支持的卡片。旧环境记录不用于当前判断。"
     latestOutcome?.event()?.kind() == HealthEvent.Kind.ACCEPTED -> "已记录视频交接" to "外跳请求已被接受；请手动确认对应作品是否已打开。"
-    latestOutcome?.event()?.kind() == HealthEvent.Kind.LAUNCH_FAILED -> "外跳请求未成功" to "已保留 QQ 原流程；请检查对应国内版 App 是否可用。"
-    latestOutcome?.event()?.kind() == HealthEvent.Kind.PASSED -> "本次保留 QQ 原流程" to latestOutcome!!.event().reason().title
+    latestOutcome?.event()?.kind() == HealthEvent.Kind.LAUNCH_FAILED -> "外跳请求未成功" to "已保留 ${hostLabel} 原流程；请检查对应国内版 App 是否可用。"
+    latestOutcome?.event()?.kind() == HealthEvent.Kind.PASSED -> "本次保留 ${hostLabel} 原流程" to latestOutcome!!.event().reason().title
     latestOutcome?.event()?.kind() == HealthEvent.Kind.ENTERED -> "入口已进入，待确认结果" to "入口信号本身不代表视频交接成功。"
-    else -> "等待真实点击" to "打开 QQ 点击支持的视频卡片，然后返回这里刷新。"
+    else -> "等待真实点击" to "打开 ${hostLabel} 点击支持的视频卡片，然后返回这里刷新。"
 }
 
 internal fun LazyListScope.diagnosticsPage(data: DashboardSnapshot, actions: DashboardActions, filter: String, onFilter: (String) -> Unit, confirmClear: () -> Unit) {
@@ -222,7 +232,7 @@ internal fun LazyListScope.diagnosticsPage(data: DashboardSnapshot, actions: Das
         Text(data.diagnosis().first, style = MaterialTheme.typography.headlineMedium)
         Text(data.diagnosis().second, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         QuietText("最近上报 ${timeLabel(org.json.JSONObject(data.healthJson).optLong("at"))} · v${data.moduleName}")
-        if (data.framework.connected() && data.framework.scopeKnown() && !data.framework.scoped()) FilledTonalButton(actions::requestScope) { Text("申请 QQ 作用域") }
+        if (data.framework.connected() && data.framework.scopeKnown() && !data.framework.scoped()) FilledTonalButton(actions::requestScope) { Text("申请 ${data.hostLabel} 作用域") }
     } }
     item("entries") { ExpandablePanel("入口状态", "6 类入口 · 挂载与交接分开展示", "expand-entries") {
         com.handoff.api.health.HealthEvent.Entry.entries.filter { it != HealthEvent.Entry.SYSTEM }.forEach { entry ->
@@ -247,21 +257,21 @@ internal fun LazyListScope.diagnosticsPage(data: DashboardSnapshot, actions: Das
     } }.take(20)
     if (events.isEmpty()) item("empty-signals") { Panel {
         Text(if (data.evidence.isEmpty()) "还没有信号，等一次真实点击" else "这个分类还没有记录", style = MaterialTheme.typography.titleMedium)
-        QuietText("QQ 尚未重启、作用域未启用或报告通道不可用时，可能暂时没有上报。")
+        QuietText("${data.hostLabel} 尚未重启、作用域未启用或报告通道不可用时，可能暂时没有上报。")
     } }
     items(events.withIndex().toList(), key = { "event-${it.index}-${it.value.at()}" }) { (_, evidence) ->
         Panel(if (LocalHandoffMotion.current) Modifier.animateItem() else Modifier) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 val accent = when (evidence.event().kind()) { HealthEvent.Kind.ACCEPTED -> MaterialTheme.colorScheme.primary; HealthEvent.Kind.LAUNCH_FAILED, HealthEvent.Kind.INSTALL_FAILED -> MaterialTheme.colorScheme.error; else -> MaterialTheme.colorScheme.onSurfaceVariant }
                 Box(Modifier.size(9.dp).background(accent, CircleShape))
-                Column(Modifier.weight(1f)) { Text(evidence.event().entry().title, style = MaterialTheme.typography.titleMedium); QuietText(if (evidence.event().reason() == HealthEvent.Reason.NONE) kindLabel(evidence.event().kind()) else evidence.event().reason().title) }
+                Column(Modifier.weight(1f)) { Text(evidence.event().entry().title, style = MaterialTheme.typography.titleMedium); QuietText(if (evidence.event().reason() == HealthEvent.Reason.NONE) kindLabel(evidence.event().kind()).replace("QQ", data.hostLabel) else evidence.event().reason().title) }
                 QuietText(timeLabel(evidence.at()))
             }
         }
     }
     item("environment") { ExpandablePanel("环境快照", "当前设备与作用域", "expand-environment") {
-        InfoLine("QQ", "${data.qqName} / ${data.qqCode}"); InfoLine("Android", "${Build.VERSION.RELEASE} / API ${Build.VERSION.SDK_INT}")
-        InfoLine("框架", if (data.framework.connected()) data.framework.label() else "未连接 · 状态未知"); InfoLine("作用域", data.framework.scopeLabel())
+        InfoLine(data.hostLabel, "${data.qqName} / ${data.qqCode}"); InfoLine("Android", "${Build.VERSION.RELEASE} / API ${Build.VERSION.SDK_INT}")
+        InfoLine("框架", if (data.framework.connected()) data.framework.label() else "未连接 · 状态未知"); InfoLine("作用域", data.framework.scopeLabel(data.hostPackage))
         destinations.forEach { InfoLine(it.title, if (data.installed[it.key] == true) "已安装国内版" else "未发现国内版") }
     } }
     item("export") { OutlinedButton(actions::share, Modifier.fillMaxWidth().testTag("export-diagnostics")) { Text("导出脱敏诊断") } }

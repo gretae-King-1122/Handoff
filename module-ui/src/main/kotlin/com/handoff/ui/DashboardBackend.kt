@@ -6,6 +6,7 @@ import android.os.Build
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.graphics.drawable.toBitmap
+import com.handoff.api.HostApps
 import com.handoff.api.health.HealthEvent
 import com.handoff.api.health.HealthPolicy
 import com.handoff.storage.HealthStore
@@ -25,6 +26,7 @@ internal interface DashboardBackend {
     fun mark(environment: HealthPolicy.Environment, test: HealthPolicy.Case, result: String)
     fun clearDiagnostics()
     fun clearRuns()
+    fun selectHost(packageName: String) {}
     fun requestScope(callback: (Boolean) -> Unit)
     fun observe(callback: Runnable) {}
     fun unobserve(callback: Runnable) {}
@@ -45,10 +47,13 @@ internal class AndroidDashboardBackend(private val context: Context) : Dashboard
     }
     override suspend fun read(): DashboardSnapshot {
         val own = pkg(context.packageName)
-        val qq = pkg("com.tencent.mobileqq")
+        val hosts = listOf(HostApps.QQ, HostApps.TIM).associateWith(::pkg)
+        val savedHost = appearance.getString("host_package", null)
+        val host = savedHost?.takeIf(HostApps::isSupported) ?: if (hosts[HostApps.QQ] == null && hosts[HostApps.TIM] != null) HostApps.TIM else HostApps.QQ
+        val qq = hosts[host]
         val apps = destinations.associate { it.key to pkg(it.packageName) }
         val service = FrameworkConnection.service
-        val framework = FrameworkSnapshot.read(service, code(own))
+        val framework = FrameworkSnapshot.read(service, code(own), host)
         val remote = if (framework.connected()) runCatching {
             val prefs = service!!.getRemotePreferences("handoff_settings")
             buildMap {
@@ -58,10 +63,15 @@ internal class AndroidDashboardBackend(private val context: Context) : Dashboard
                 }
             }
         }.getOrNull() else null
-        val health = HealthStore.read(context)
-        val runs = RegressionStore.read(context)
+        val health = HealthStore.read(context, host)
+        val storedRuns = RegressionStore.read(context)
+        val runs = org.json.JSONArray().also { selected ->
+            for (index in 0 until storedRuns.length()) storedRuns.optJSONObject(index)?.let { run ->
+                if (run.optString("packageName", HostApps.QQ) == host) selected.put(run)
+            }
+        }
         return DashboardSnapshot(
-            checked = true, framework = framework, moduleCode = code(own), moduleName = own?.versionName ?: "—",
+            checked = true, hostPackage = host, hostVersions = hosts.mapValues { it.value?.versionName ?: "未安装" }, framework = framework, moduleCode = code(own), moduleName = own?.versionName ?: "—",
             qqCode = code(qq), qqName = qq?.versionName ?: "未安装",
             installed = apps.mapValues { it.value != null },
             appIcons = destinations.mapNotNull { app -> appIcon(app.packageName, apps[app.key])?.let { app.key to it } }.toMap(),
@@ -71,8 +81,8 @@ internal class AndroidDashboardBackend(private val context: Context) : Dashboard
                 val results = run.optJSONObject("results") ?: JSONObject()
                 RegressionRun(run.optLong("started"), run.optString("environment"), run.optLong("qq"), run.optInt("android"),
                     run.optString("model"), run.optString("framework"), run.optLong("module"),
-                    HealthPolicy.Case.entries.mapNotNull { test -> results.optString(test.name).takeIf { it.isNotBlank() }?.let { test.name to it } }.toMap())
-            } },
+                    HealthPolicy.Case.entries.mapNotNull { test -> results.optString(test.name).takeIf { it.isNotBlank() }?.let { test.name to it } }.toMap(), run.optString("packageName", HostApps.QQ))
+            } }.filter { it.packageName == host },
         )
     }
     override fun saveSetting(key: String, enabled: Boolean) {
@@ -88,10 +98,16 @@ internal class AndroidDashboardBackend(private val context: Context) : Dashboard
     override fun clearRuns() { RegressionStore.clear(context) }
     override fun requestScope(callback: (Boolean) -> Unit) {
         val service = FrameworkConnection.service ?: return callback(false)
-        runCatching { service.requestScope(listOf("com.tencent.mobileqq"), object : XposedService.OnScopeEventListener {
-            override fun onScopeRequestApproved(approved: List<String>) = callback(approved.contains("com.tencent.mobileqq"))
+        val host = appearance.getString("host_package", null)?.takeIf(HostApps::isSupported)
+            ?: if (pkg(HostApps.QQ) == null && pkg(HostApps.TIM) != null) HostApps.TIM else HostApps.QQ
+        runCatching { service.requestScope(listOf(host), object : XposedService.OnScopeEventListener {
+            override fun onScopeRequestApproved(approved: List<String>) = callback(approved.contains(host))
             override fun onScopeRequestFailed(reason: String) = callback(false)
         }) }.onFailure { callback(false) }
+    }
+    override fun selectHost(packageName: String) {
+        require(HostApps.isSupported(packageName))
+        check(appearance.edit().putString("host_package", packageName).commit())
     }
     override fun observe(callback: Runnable) = FrameworkConnection.observe(callback)
     override fun unobserve(callback: Runnable) = FrameworkConnection.unobserve(callback)

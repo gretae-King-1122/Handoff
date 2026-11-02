@@ -117,4 +117,44 @@ public class HealthStorageTest {
         } finally { ShadowBinder.setCallingUid(android.os.Process.myUid()); }
         assertTrue(HealthStore.evidence(HealthStore.read(context)).isEmpty());
     }
+    @Test public void timAndQqSessionsNeverOverwriteEachOther() {
+        HealthStore.receive(context, report("ACCEPTED"));
+        Bundle tim = report("SESSION"); tim.putString("packageName", "com.tencent.tim");
+        tim.putLong("qq", 4050); HealthStore.receive(context, tim);
+        assertEquals(16580, HealthStore.read(context).optLong("qq"));
+        assertEquals(4050, HealthStore.read(context, "com.tencent.tim").optLong("qq"));
+        assertEquals("com.tencent.mobileqq", HealthStore.evidence(HealthStore.read(context)).get(0).packageName());
+        assertEquals("com.tencent.tim", HealthStore.evidence(HealthStore.read(context, "com.tencent.tim")).get(0).packageName());
+    }
+    @Test public void timRegressionCannotUseQqEvidenceAndBothHostsCanKeepCurrentRuns() throws Exception {
+        var timEnv = new HealthPolicy.Environment(5, 16580, 35, "Test", env.framework(), "com.tencent.tim");
+        RegressionStore.start(context, env);
+        RegressionStore.start(context, timEnv);
+        HealthStore.receive(context, report("ACCEPTED"));
+        assertThrows(IllegalStateException.class, () -> RegressionStore.result(context, timEnv, HealthPolicy.Case.WEB, "PASS"));
+        RegressionStore.result(context, env, HealthPolicy.Case.WEB, "PASS");
+        Bundle tim = report("ACCEPTED"); tim.putString("packageName", "com.tencent.tim"); HealthStore.receive(context, tim);
+        RegressionStore.result(context, timEnv, HealthPolicy.Case.WEB, "PASS");
+        assertEquals("com.tencent.tim", RegressionStore.read(context).getJSONObject(0).getString("packageName"));
+        assertEquals("PASS", RegressionStore.read(context).getJSONObject(1).getJSONObject("results").getString("WEB"));
+    }
+    @Test public void unsupportedHostReportIsRejected() {
+        Bundle wrong = report("SESSION"); wrong.putString("packageName", "com.tencent.tim.fake");
+        assertThrows(IllegalArgumentException.class, () -> HealthStore.receive(context, wrong));
+    }
+
+    @Test public void providerBindsTimReportsToTimUidAndCannotBeUsedToForgeQq() {
+        HealthProvider provider = Robolectric.buildContentProvider(HealthProvider.class).create().get();
+        int timUid = 12345;
+        org.robolectric.Shadows.shadowOf(context.getPackageManager()).setPackagesForUid(timUid, "com.tencent.tim");
+        ShadowBinder.setCallingUid(timUid);
+        try {
+            Bundle tim = report("SESSION"); tim.putString("packageName", "com.tencent.tim"); tim.putLong("qq", 4050);
+            assertTrue(provider.call("report", null, tim).getBoolean("accepted"));
+            assertEquals(4050, HealthStore.read(context, "com.tencent.tim").optLong("qq"));
+            assertThrows(SecurityException.class, () -> provider.call("report", null, report("SESSION")));
+            assertTrue(HealthStore.evidence(HealthStore.read(context)).isEmpty());
+        } finally { ShadowBinder.setCallingUid(android.os.Process.myUid()); }
+    }
+
 }

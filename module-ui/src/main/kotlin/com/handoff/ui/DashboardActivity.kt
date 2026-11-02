@@ -43,10 +43,10 @@ class DashboardActivity : ComponentActivity() {
                             .putExtra(Intent.EXTRA_SUBJECT, "Handoff 脱敏兼容性报告")
                             .putExtra(Intent.EXTRA_TEXT, event.text), "导出前请核对环境信息"))
                     }.onFailure { toast("暂时无法分享报告") }
-                    DashboardEvent.OpenQq -> runCatching {
-                        val intent = packageManager.getLaunchIntentForPackage("com.tencent.mobileqq")
-                        if (intent == null) toast("无法启动 QQ") else startActivity(intent)
-                    }.onFailure { toast("QQ 启动失败，请手动打开") }
+                    is DashboardEvent.OpenHost -> runCatching {
+                        val intent = packageManager.getLaunchIntentForPackage(event.packageName)
+                        if (intent == null) toast("无法启动 ${com.handoff.api.HostApps.label(event.packageName)}") else startActivity(intent)
+                    }.onFailure { toast("${com.handoff.api.HostApps.label(event.packageName)} 启动失败，请手动打开") }
                     is DashboardEvent.Message -> launch { snackbar.showSnackbar(event.text) }
                 } }
             }

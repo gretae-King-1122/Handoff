@@ -74,11 +74,14 @@ public class KuaishouResolveActivityTest {
         };
     }
     private Intent request() {
-        Intent browser = new Intent().setClassName("com.tencent.mobileqq", "com.tencent.mobileqq.activity.QQBrowserActivity")
+        return request("com.tencent.mobileqq");
+    }
+    private Intent request(String host) {
+        Intent browser = new Intent().setClassName(host, "com.tencent.mobileqq.activity.QQBrowserActivity")
                 .putExtra("url", SHORT).putExtra("original_extra", "preserved");
         fallback = PendingIntent.getActivity(qqContext(), 42, browser, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_ONE_SHOT);
-        shadowOf(fallback).setCreatorPackage("com.tencent.mobileqq");
-        assertEquals("com.tencent.mobileqq", fallback.getCreatorPackage());
+        shadowOf(fallback).setCreatorPackage(host);
+        assertEquals(host, fallback.getCreatorPackage());
         assertTrue(fallback.isImmutable());
         assertTrue(fallback.isActivity());
         return new Intent(Intent.ACTION_VIEW, Uri.parse(SHORT))
@@ -111,6 +114,26 @@ public class KuaishouResolveActivityTest {
         assertEquals("preserved", original.getStringExtra("original_extra"));
         assertNull(shadowOf(RuntimeEnvironment.getApplication()).getNextStartedActivity());
         assertTrue(controller.get().isFinishing());
+    }
+
+    @Test public void failedResolutionFromTimReturnsOnlyTheOriginalTimRequest() {
+        location = "https://evil.test/page";
+        var controller = Robolectric.buildActivity(TestActivity.class, request("com.tencent.tim")).setup();
+        worker.resolve();
+        assertTrue(launches.isEmpty());
+        assertEquals(List.of(KuaishouLauncher.FAILED), results);
+        Intent original = shadowOf(RuntimeEnvironment.getApplication()).getNextStartedActivity();
+        assertNotNull(original);
+        assertEquals("com.tencent.tim", original.getComponent().getPackageName());
+        assertEquals("preserved", original.getStringExtra("original_extra"));
+        assertNull(shadowOf(RuntimeEnvironment.getApplication()).getNextStartedActivity());
+        assertTrue(controller.get().isFinishing());
+    }
+
+    @Test public void similarlyNamedTimPackageCannotAuthorizeNetworkRequests() {
+        assertTrue(Robolectric.buildActivity(TestActivity.class, request("com.tencent.tim.fake")).setup().get().isFinishing());
+        assertTrue(worker.tasks.isEmpty());
+        assertEquals(0, requests);
     }
 
     @Test public void missingKuaishouAlsoReturnsToQqWithoutHomepageFallback() {

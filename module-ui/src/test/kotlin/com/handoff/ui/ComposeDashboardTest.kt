@@ -99,6 +99,7 @@ class ComposeDashboardTest {
         assertTrue("Miuix uses the full-width navigation layout", flat.width > floating.width)
         compose.onNodeWithTag("reduce-motion").assertIsOn().assertIsEnabled()
         navigate(DashboardPage.HOME)
+        scrollToControl("page-HOME", "destination-douyin")
         compose.onNodeWithTag("destination-douyin").assertIsDisplayed().performClick()
         compose.onNodeWithText("前往交接设置").performClick()
         compose.onNodeWithTag("page-SETTINGS").assertIsDisplayed()
@@ -156,7 +157,8 @@ class ComposeDashboardTest {
 
     @Test fun platformSheetShowsUnknownStateAndNavigatesToSettings() {
         show()
-        compose.onNodeWithTag("destination-douyin").performClick()
+        scrollToControl("page-HOME", "destination-douyin")
+        compose.onNodeWithTag("destination-douyin").assertIsDisplayed().performClick()
         screenshot("destination-sheet", "destination-sheet")
         compose.onNodeWithText("国内版 App").assertIsDisplayed()
         compose.onNodeWithText("前往交接设置").performClick()
@@ -416,4 +418,23 @@ class ComposeDashboardTest {
         show(offline.copy(style = style))
         DashboardPage.entries.forEach { page -> navigate(page); screenshot("$folder/${page.name.lowercase()}") }
     }
+    @Test fun renderTimHomeAndKeepHostSelectionSeparate() {
+        val value = mutableStateOf(offline.copy(snapshot = offline.snapshot.copy(
+            hostPackage = "com.tencent.tim", qqCode = 4050, qqName = "4.1.0",
+            hostVersions = mapOf("com.tencent.mobileqq" to "未安装", "com.tencent.tim" to "4.1.0"))))
+        val actions = object : DashboardActions {
+            override fun selectHost(packageName: String) {
+                value.value = value.value.copy(snapshot = value.value.snapshot.copy(hostPackage = packageName))
+            }
+        }
+        compose.setContent { HandoffDashboard(value.value, actions) }
+        compose.onNodeWithTag("host-com.tencent.tim").assertIsSelected()
+        compose.onNodeWithText("TIM · 4.1.0").assertIsDisplayed()
+        screenshot("tim-home")
+        compose.onNodeWithTag("host-com.tencent.mobileqq").performClick().assertIsSelected()
+        assertEquals("com.tencent.mobileqq", value.value.snapshot.hostPackage)
+        compose.onNodeWithTag("host-com.tencent.tim").performClick().assertIsSelected()
+        assertEquals("com.tencent.tim", value.value.snapshot.hostPackage)
+    }
+
 }

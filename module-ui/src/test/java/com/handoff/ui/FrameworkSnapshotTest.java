@@ -63,4 +63,20 @@ public class FrameworkSnapshotTest {
         assertNotEquals(FrameworkSnapshot.RuntimeState.CURRENT,
                 FrameworkSnapshot.runtime(List.of(target("com.tencent.mobileqq", 0, HookedTarget.State.UP_TO_DATE)), 0));
     }
+    @Test public void timScopeAndActivationCannotBeProvedByQqOrTimSubprocess() {
+        Source source = new Source();
+        source.scope = List.of("com.tencent.tim");
+        source.targets = List.of(target("com.tencent.mobileqq", 6, HookedTarget.State.UP_TO_DATE),
+                target("com.tencent.tim:mini", 6, HookedTarget.State.UP_TO_DATE));
+        var tim = FrameworkSnapshot.read(source, 6, "com.tencent.tim");
+        assertTrue(tim.scoped()); assertEquals("已勾选 TIM", tim.scopeLabel("com.tencent.tim"));
+        assertEquals(FrameworkSnapshot.RuntimeState.NOT_RUNNING, tim.runtime());
+        assertFalse(FrameworkSnapshot.read(source, 6).scoped());
+        source.targets = List.of(target("com.tencent.tim", 6, HookedTarget.State.UP_TO_DATE));
+        tim = FrameworkSnapshot.read(source, 6, "com.tencent.tim");
+        assertEquals("已在 TIM 激活", ActivationStatus.resolve(true, tim, "com.tencent.tim").title());
+        assertEquals(FrameworkSnapshot.RuntimeState.CURRENT, tim.runtime());
+        assertEquals(FrameworkSnapshot.RuntimeState.NOT_RUNNING, FrameworkSnapshot.read(source, 6).runtime());
+    }
+
 }

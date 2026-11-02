@@ -11,7 +11,7 @@ final class DouyinBrowserDispatch {
 
     static ParsedLink parse(String caller, String targetPackage, String targetClass, String url,
                             QqAdapters.Contract contract) {
-        if (!contract.browserCaller().equals(caller) || !"com.tencent.mobileqq".equals(targetPackage)
+        if (!contract.browserCaller().equals(caller) || !contract.packageName().equals(targetPackage)
                 || targetClass == null || !contract.browsers().contains(targetClass)) return null;
         return PARSER.parseUrl(url);
     }

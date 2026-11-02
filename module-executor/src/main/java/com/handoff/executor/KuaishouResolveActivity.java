@@ -14,6 +14,7 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 import com.handoff.api.links.ParsedLink;
+import com.handoff.api.HostApps;
 import com.handoff.rules.links.KuaishouLinkParser;
 import java.lang.ref.WeakReference;
 import java.util.concurrent.ExecutorService;
@@ -37,7 +38,7 @@ public class KuaishouResolveActivity extends Activity {
             receiver = getIntent().getParcelableExtra(RESULT);
             ParsedLink link = new KuaishouLinkParser().parseUrl(getIntent().getDataString());
             if (link == null || link.kind() != ParsedLink.Kind.SHORT_LINK || fallback == null
-                    || !"com.tencent.mobileqq".equals(fallback.getCreatorPackage())
+                    || !HostApps.isSupported(fallback.getCreatorPackage())
                     || (Build.VERSION.SDK_INT >= 31 && (!fallback.isImmutable() || !fallback.isActivity()))) {
                 terminal = true;
                 finish(); // Invalid exported requests must not cause network or arbitrary launches.
