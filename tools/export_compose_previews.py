@@ -74,7 +74,7 @@ def main():
     board("pages.png", "Handoff / Compose Material 3", "Google 蓝与中性纯色 · 标准组件 · 清晰的信息层级", [
         ("01  概览", "material-light/home.png"),
         ("02  诊断", "material-light/diagnostics.png"),
-        ("03  回归", "material-light/regression.png"),
+        ("03  日志", "material-light/regression.png"),
         ("04  设置", "material-light/settings.png"),
     ], font)
     board("appearance.png", "Handoff / 外观与上下文面板", "浅深色跟随系统 · 局部背景玻璃 · 软件渲染可能降级为底色", [

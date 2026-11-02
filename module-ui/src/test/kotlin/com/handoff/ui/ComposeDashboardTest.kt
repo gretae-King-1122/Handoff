@@ -180,6 +180,52 @@ class ComposeDashboardTest {
         compose.onNodeWithTag("confirm-action").performClick(); assertEquals(1, starts)
     }
 
+    @Test fun logsUsePlainLanguageInBothStylesAndKeepTestConfirmation() {
+        val value = mutableStateOf(offline.copy(reduceMotion = true))
+        compose.setContent { HandoffDashboard(value.value, noop) }
+        UiStyle.entries.forEach { style ->
+            compose.runOnIdle { value.value = value.value.copy(style = style) }
+            navigate(DashboardPage.REGRESSION)
+            compose.onNodeWithTag("nav-REGRESSION").assertTextContains("日志")
+            compose.onAllNodesWithText("回归", substring = true).assertCountEquals(0)
+            compose.onNodeWithTag("start-run").assertTextContains("新建测试记录").performClick()
+            compose.onNodeWithText("新建测试记录？").assertIsDisplayed()
+            compose.onNodeWithText("取消").performClick()
+        }
+    }
+
+    @Test fun settingsDoNotExposeInternalHookContractInEitherStyle() {
+        val value = mutableStateOf(offline.copy(reduceMotion = true))
+        compose.setContent { HandoffDashboard(value.value, noop) }
+        UiStyle.entries.forEach { style ->
+            compose.runOnIdle { value.value = value.value.copy(style = style) }
+            navigate(DashboardPage.SETTINGS)
+            // Search the entire lazy list, including content initially off screen.
+            assertThrows(AssertionError::class.java) {
+                compose.onNodeWithTag("page-SETTINGS").performScrollToNode(hasTestTag("expand-contract"))
+            }
+            settingsItem("expand-adapters")
+            compose.onNodeWithTag("expand-adapters").assertExists()
+            settingsItem("open-about")
+            compose.onNodeWithTag("open-about").assertIsDisplayed()
+            compose.onAllNodesWithText("契约", substring = true).assertCountEquals(0)
+        }
+    }
+
+    @Test fun aboutUsesTheOriginalHandoffLauncherArtwork() {
+        val bytes = compose.activity.resources.openRawResource(R.drawable.handoff_brand).use { it.readBytes() }
+        val digest = java.security.MessageDigest.getInstance("SHA-256").digest(bytes)
+            .joinToString("") { "%02x".format(it.toInt() and 0xff) }
+        // Exact bytes of the original xxxhdpi launcher icon, not a redesigned mark.
+        assertEquals("9f24f758417653c58136968239e2bccc0e9c04761247c43556d2ecf1a29dd133", digest)
+        show()
+        navigate(DashboardPage.SETTINGS)
+        settingsItem("open-about")
+        compose.onNodeWithTag("open-about").performClick()
+        compose.onNodeWithTag("about-app-icon").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Handoff 应用图标").assertIsDisplayed()
+    }
+
     @Test fun positiveRegressionResultRequiresASeparateConfirmation() {
         val snapshot = offline.snapshot.copy(qqCode = 16580)
         val run = RegressionRun(1, snapshot.environment.key(), 16580, 35, "preview", "unknown", 0, emptyMap())

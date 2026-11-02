@@ -53,7 +53,7 @@ class DashboardBackdropTest {
                     // Scaffold's own background is outside the recorded page source.
                     Box(Modifier.fillMaxSize().background(background)) {
                         Box(Modifier.fillMaxSize().dashboardBackdropSource(haze, backdrop)) {
-                            Text("清除回归矩阵")
+                            Text("清除测试记录")
                         }
                         Box(Modifier.fillMaxWidth().height(56.dp).frostedGlass())
                     }

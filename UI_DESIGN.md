@@ -4,6 +4,8 @@ v0.8.0 将概览、诊断、回归、设置四页迁移到 Jetpack Compose，分
 
 ## 视觉与布局
 
+后续界面调整：第三页在界面中统一称为“日志”，其中保留手动测试与结果确认，自动运行信号仍在“诊断”页；内部 RegressionStore、持久化字段与已有数据不改名、不清空。设置不再展示“当前契约”技术面板，底层签名校验与适配规则保持不变。关于面板直接使用原有 xxxhdpi 启动图标的同源 PNG，不再另绘品牌标记；桌面图标不变。
+
 默认 Material 风格使用 Google 蓝、纯色状态卡和中性背景，不使用渐变。大标题、统计卡、目的地卡片与详情形成明确层级。首页的框架信息及版本与设备卡片默认展开，仍可手动收起，并在切页、刷新及界面重建后保留选择；其他详情按需展开。浅色和深色跟随系统。
 
 目的地卡片和详情面板通过 PackageManager 按国内版包名读取本机应用图标：B 站 `tv.danmaku.bili`、抖音 `com.ss.android.ugc.aweme`、快手 `com.smile.gifmaker`。普通图标与自适应图标都保留原色，在 IO 线程转为显示位图；按版本、更新时间和像素尺寸缓存，刷新发现更新或卸载时失效。未安装或读取失败时使用原占位标记，不下载网络图标。
@@ -58,7 +60,7 @@ Material 使用移植的 SukiSU 悬浮底栏，其余复用 Material 3 的 Outli
 ./gradlew test :app:assembleDebug :module-ui:lintDebug
 ```
 
-本次累计 216 项测试通过，其中 UI 模块 65 项；Debug APK 构建成功，UI lint 为 0 errors、4 条存储 API 建议。UI 测试覆盖四页导航与恢复、Activity / ViewModel 集成、只读和独立开关、存储失败与刷新合并、回归确认、两种外观的浅深色、320dp 窄屏、大字体、横屏、Android 8 双风格及动画关闭。新增测试确认液态底栏拖动释放后切换到目标页面、浅深色采样源包含页面底色、两张信息卡默认展开及手动收起状态恢复、关于面板的真实版本显示、GitHub 链接、浏览器失败提示和返回设置页。测试报告以构建输出为准。
+本次累计 219 项测试通过，其中 UI 模块 68 项；Debug APK 构建成功，UI lint 为 0 errors、4 条存储 API 建议。UI 测试覆盖四页导航与恢复、Activity / ViewModel 集成、只读和独立开关、存储失败与刷新合并、回归确认、两种外观的浅深色、320dp 窄屏、大字体、横屏、Android 8 双风格及动画关闭。新增测试确认液态底栏拖动释放后切换到目标页面、浅深色采样源包含页面底色、两张信息卡默认展开及手动收起状态恢复、关于面板的真实版本显示、GitHub 链接、浏览器失败提示和返回设置页；后续新增原版图标资源一致性、双风格日志文案和契约面板移除测试。测试报告以构建输出为准。
 
 `ComposeDashboardTest` 从实际 Compose 树生成离线像素截图和逐帧页面过渡，原图在 `module-ui/build/outputs/compose-preview/`。可通过 `tools/export_compose_previews.py` 导出到 [`assets/screenshots/compose/`](assets/screenshots/compose/)：
 

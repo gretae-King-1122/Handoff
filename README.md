@@ -27,7 +27,7 @@ Handoff 是一个轻量 LSPosed 模块。点击 QQ 中支持的视频卡片或�
 | 视频交接 | 浏览器／小程序多入口互补，按实际 ClassLoader 补挂 |
 | 双风格界面 | Compose Material 3 与 Miuix 两套组件，跟随系统浅色／深色 |
 | 状态与诊断 | 展示真实激活状态、框架信息与入口信号，支持脱敏导出 |
-| 回归与设置 | 绑定环境记录测试结果，提供总开关和六类入口开关 |
+| 日志与设置 | 绑定环境记录手动测试结果，提供总开关和六类入口开关 |
 
 **当前正式版：[v0.8.0](https://github.com/gretae-King-1122/Handoff/releases/tag/v0.8.0)。**
 216 项 JVM／Robolectric 测试、Debug／Release 构建及应用／UI 模块 Release lint 检查通过。
@@ -41,6 +41,8 @@ Handoff 是一个轻量 LSPosed 模块。点击 QQ 中支持的视频卡片或�
 > [抖音说明 →](DOUYIN_PILOT.md) · [快手范围与验收 →](KUAISHOU_PILOT.md)
 
 ## Compose 界面预览
+
+以下为当前源码的离线预览，包含尚未发布的原版图标恢复及“日志”文案调整；已发布 v0.8.0 APK 不包含这些后续修改。
 
 v0.8.0 采用 **Jetpack Compose + Material 3 / Miuix** 两套组件：Material 底栏直接接入 SukiSU-Ultra 的液态玻璃分支，包括背景模糊、透镜折射、边缘高光及可拖动的弹性指示器；Miuix 接入同款 0.9.4 组件库的导航、卡片、开关和按钮，采用灰底分组列表。完整光学效果要求 Android 13+ 硬件加速；旧系统、软件绘制和减少动效保留降级路径。
 

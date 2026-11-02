@@ -49,7 +49,7 @@ import androidx.compose.material.icons.rounded.Check
 internal enum class DashboardPage(val label: String, val title: String, val eyebrow: String, val icon: ImageVector, val selectedIcon: ImageVector) {
     HOME("首页", "概览", "设备与服务", Icons.Outlined.Home, Icons.Rounded.Home),
     DIAGNOSTICS("诊断", "诊断", "运行记录", Icons.Outlined.Info, Icons.Rounded.Info),
-    REGRESSION("回归", "回归", "验证与记录", Icons.AutoMirrored.Outlined.List, Icons.AutoMirrored.Rounded.List),
+    REGRESSION("日志", "日志", "测试与记录", Icons.AutoMirrored.Outlined.List, Icons.AutoMirrored.Rounded.List),
     SETTINGS("设置", "设置", "个性化与偏好", Icons.Outlined.Settings, Icons.Rounded.Settings),
 }
 

@@ -37,12 +37,12 @@ internal fun LazyListScope.homePage(state: DashboardState, actions: DashboardAct
         Panel(padding = 18.dp) {
             InfoLine("入口挂载记录", data.mounted?.toString() ?: "—")
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-            InfoLine("本机回归轮次", data.runs.size.toString())
+            InfoLine("本机测试记录", data.runs.size.toString())
         }
       } else {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Metric(data.mounted?.toString() ?: "—", "入口挂载记录", "共 6 类入口", Modifier.weight(1f))
-            Metric(data.runs.size.toString(), "本机回归轮次", "实际结果，由你确认", Modifier.weight(1f))
+            Metric(data.runs.size.toString(), "本机测试记录", "实际结果，由你确认", Modifier.weight(1f))
         }
       }
     }
@@ -83,7 +83,7 @@ internal fun LazyListScope.homePage(state: DashboardState, actions: DashboardAct
             }
         }
     }
-    item("notice") { QuietText("激活只表示当前模块已在 QQ 主进程加载；实际视频交接结果请通过诊断和回归确认。") }
+    item("notice") { QuietText("激活只表示当前模块已在 QQ 主进程加载；请手动确认是否打开对应作品，可在日志页记录结果、在诊断页查看运行信号。") }
 }
 
 @Composable private fun ActivationHero(data: DashboardSnapshot, onInspect: () -> Unit) {

@@ -1,6 +1,7 @@
 package com.handoff.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -9,8 +10,8 @@ import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
@@ -27,7 +28,8 @@ private const val PROJECT_URL = "https://github.com/gretae-King-1122/Handoff"
         .padding(horizontal = 24.dp).padding(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
         Text("关于此软件", style = MaterialTheme.typography.headlineMedium)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Icon(painterResource(R.drawable.ic_handoff_mark), null, Modifier.size(56.dp), tint = Color.Unspecified)
+            Image(painterResource(R.drawable.handoff_brand), "Handoff 应用图标",
+                Modifier.size(56.dp).clip(MaterialTheme.shapes.medium).testTag("about-app-icon"))
             Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Text("Handoff", style = MaterialTheme.typography.headlineSmall)
                 Badge(if (data.moduleCode > 0) "v${data.moduleName} · ${data.moduleCode}" else "版本信息暂不可用")

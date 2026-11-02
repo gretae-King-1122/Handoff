@@ -21,7 +21,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.handoff.api.health.HealthEvent
 import com.handoff.api.health.HealthPolicy
@@ -74,12 +73,6 @@ internal fun LazyListScope.settingsPage(state: DashboardState, actions: Dashboar
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
         QuietText("版本命中不代表当前设备可用。实际挂载与交接结果请查看诊断。")
-    } }
-    item("contract") { ExpandablePanel("当前契约", "内置严格签名探测 · 不下载远程代码", "expand-contract") {
-        val contract = QqAdapters.resolve(data.qqCode).contract()
-        Text("网页派发\n${contract.browserDispatch()}\n\n小程序 SDK\n${contract.miniSdk()}\n\n小程序服务\n${contract.miniService()}\n\n小程序模型\n${contract.miniModel()}",
-            style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace))
-        QuietText("SDK／服务精确四参数 void 签名；容器显式路由、无回调、已适配视频。启动时按实际 ClassLoader 补挂。")
     } }
     item("report") { OutlinedButton(actions::share, Modifier.fillMaxWidth()) { Text("导出当前适配报告") } }
     item("about") { PressCard(openAbout, Modifier.fillMaxWidth().testTag("open-about")) {
@@ -134,12 +127,12 @@ internal fun LazyListScope.settingsPage(state: DashboardState, actions: Dashboar
 
 internal fun LazyListScope.regressionPage(state: DashboardState, actions: DashboardActions, confirm: (String) -> Unit) {
     val data = state.snapshot
-    item("heading") { PageHeading(DashboardPage.REGRESSION, "认真确认每次交接，把可复现的结果留下来。") }
+    item("heading") { PageHeading(DashboardPage.REGRESSION, "手动测试并记录交接结果，运行信号请查看诊断页。") }
     item("environment") { Panel {
         Badge("当前测试环境")
         Text("QQ ${data.qqName}", style = MaterialTheme.typography.titleLarge)
         QuietText("Android ${android.os.Build.VERSION.RELEASE} · ${android.os.Build.MODEL}\n${if (data.framework.connected()) data.framework.label() else "框架未知"}")
-        DashboardPrimaryButton({ confirm("start") }, Modifier.fillMaxWidth().testTag("start-run"), enabled = !state.busy) { Text("开始新一轮回归") }
+        DashboardPrimaryButton({ confirm("start") }, Modifier.fillMaxWidth().testTag("start-run"), enabled = !state.busy) { Text("新建测试记录") }
     } }
     val run = data.runs.firstOrNull()
     if (run == null) item("empty") { Panel {
@@ -186,8 +179,8 @@ internal fun LazyListScope.regressionPage(state: DashboardState, actions: Dashbo
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
     } }
-    item("export") { OutlinedButton(actions::share, Modifier.fillMaxWidth()) { Text("导出矩阵与诊断") } }
-    item("clear") { TextButton({ confirm("clear-runs") }, Modifier.fillMaxWidth()) { Text("清除回归矩阵", color = MaterialTheme.colorScheme.error) } }
+    item("export") { OutlinedButton(actions::share, Modifier.fillMaxWidth()) { Text("导出测试与诊断记录") } }
+    item("clear") { TextButton({ confirm("clear-runs") }, Modifier.fillMaxWidth()) { Text("清除测试记录", color = MaterialTheme.colorScheme.error) } }
 }
 
 internal fun resultLabel(result: String?) = when (result) { "PASS" -> "已确认通过"; "FAIL" -> "未通过"; "SKIP" -> "已跳过"; else -> "未验证" }
