@@ -167,6 +167,39 @@ class MiniAppDispatchTest {
         assertEquals(1, attempts.get());
     }
 
+    @Test void throwingLaunchIsRememberedButDoesNotPreventAnotherVideoInTheSameChain() throws Throwable {
+        AtomicInteger attempts = new AtomicInteger();
+        AtomicInteger originals = new AtomicInteger();
+        Info other = new Info();
+        other.launchParam.entryPath = "pages/video/video?bvid=BV1xx411c7mD";
+        other.firstPage.pagePath = other.launchParam.entryPath;
+        MiniAppDispatch.intercept(new Object(), true, video -> fail("outer has no video"), () -> {
+            MiniAppDispatch.intercept(new Info(), true, video -> {
+                attempts.incrementAndGet();
+                throw new IllegalStateException("unavailable launcher");
+            }, () -> originals.incrementAndGet());
+            MiniAppDispatch.intercept(new Info(), true, video -> fail("failed video must not retry"),
+                    () -> originals.incrementAndGet());
+            return MiniAppDispatch.intercept(other, true, video -> {
+                attempts.incrementAndGet();
+                return true;
+            }, () -> fail("another video must still be handed off"));
+        });
+        assertEquals(2, attempts.get());
+        assertEquals(2, originals.get());
+    }
+
+    @Test void launcherReentryCannotLaunchAgainAndNextClickStillWorks() throws Throwable {
+        AtomicInteger originals = new AtomicInteger();
+        MiniAppDispatch.intercept(new Info(), true, video -> {
+            MiniAppDispatch.intercept(new Info(), true, nested -> fail("recursive launch"),
+                    () -> originals.incrementAndGet());
+            return true;
+        }, () -> fail("accepted outer launch must block"));
+        assertEquals(1, originals.get());
+        MiniAppDispatch.intercept(new Info(), true, video -> true, () -> fail("dispatch state leaked"));
+    }
+
     private static void pass(Object model, boolean supported) throws Throwable {
         AtomicInteger original = new AtomicInteger();
         MiniAppDispatch.intercept(model, supported, video -> fail("must not redirect"),

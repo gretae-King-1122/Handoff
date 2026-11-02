@@ -83,6 +83,60 @@ public class HealthStorageTest {
         assertEquals(5, HealthStore.read(context).optLong("module"));
         assertEquals(1, HealthStore.evidence(HealthStore.read(context)).size());
     }
+
+    @Test public void invalidStartAndChangedEnvironmentCannotPartiallyOverwriteState() {
+        HealthStore.receive(context, report("SESSION"));
+        String previous = HealthStore.read(context).toString();
+        Bundle zeroStart = report("ACCEPTED"); zeroStart.putLong("startedAt", 0);
+        Bundle lateStart = report("ACCEPTED"); lateStart.putLong("startedAt", lateStart.getLong("at") + 1);
+        Bundle changedHostVersion = report("ACCEPTED"); changedHostVersion.putLong("qq", 4050);
+        Bundle changedFramework = report("ACCEPTED"); changedFramework.putString("framework", "Other framework");
+        for (Bundle invalid : new Bundle[]{zeroStart, lateStart, changedHostVersion, changedFramework}) {
+            assertThrows(IllegalArgumentException.class, () -> HealthStore.receive(context, invalid));
+            assertEquals(previous, HealthStore.read(context).toString());
+        }
+    }
+
+    @Test public void eventWindowKeepsTheNewest96EventsInOrderWithoutMutatingInput() throws Exception {
+        long first = System.currentTimeMillis() - 1000;
+        Bundle input = report("ACCEPTED");
+        input.putString("rawUrl", "private data");
+        for (int i = 0; i < 100; i++) {
+            input.putLong("at", first + i);
+            HealthStore.receive(context, input);
+        }
+        var events = HealthStore.read(context).getJSONArray("events");
+        assertEquals(96, events.length());
+        assertEquals(first + 4, events.getJSONObject(0).getLong("at"));
+        assertEquals(first + 99, events.getJSONObject(95).getLong("at"));
+        assertEquals("private data", input.getString("rawUrl"));
+        assertFalse(input.containsKey("packageName"));
+        assertFalse(HealthStore.read(context).toString().contains("private data"));
+    }
+
+    @Test public void corruptEvidenceRowDoesNotDiscardValidNeighbors() throws Exception {
+        HealthStore.receive(context, report("ACCEPTED"));
+        JSONObject state = HealthStore.read(context);
+        JSONObject valid = state.getJSONArray("events").getJSONObject(0);
+        org.json.JSONArray rows = new org.json.JSONArray().put(valid).put("corrupt")
+                .put(new JSONObject(valid.toString()).put("kind", "UNKNOWN")).put(valid);
+        state.put("events", rows);
+        var evidence = HealthStore.evidence(state);
+        assertEquals(2, evidence.size());
+        assertEquals(evidence.get(0), evidence.get(1));
+    }
+
+    @Test public void delayedSessionUsesStartTimeRatherThanDeliveryTime() {
+        long now = System.currentTimeMillis();
+        Bundle current = report("SESSION"); current.putLong("startedAt", now - 2000);
+        HealthStore.receive(context, current);
+        Bundle delayed = report("SESSION");
+        delayed.putString("session", "22222222-2222-2222-2222-222222222222");
+        delayed.putLong("startedAt", now - 3000);
+        HealthStore.receive(context, delayed);
+        assertEquals(SESSION, HealthStore.read(context).optString("session"));
+        assertEquals(1, HealthStore.evidence(HealthStore.read(context)).size());
+    }
     @Test public void positiveResultRequiresMatchingFreshEvidence() throws Exception {
         RegressionStore.start(context, env);
         assertThrows(IllegalStateException.class, () -> RegressionStore.result(context, env, HealthPolicy.Case.WEB, "PASS"));
