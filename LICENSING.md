@@ -27,13 +27,13 @@ The Miuix components are used through the `top.yukonga.miuix.kmp:miuix-ui-androi
 
 License texts and attribution are packaged as APK assets from `LICENSES/`.
 
-## v0.8.0 corresponding source
+## v0.8.1 corresponding source
 
-The v0.8.0 combined application is distributed under GPL-3.0. Its complete
+The v0.8.1 combined application is distributed under GPL-3.0. Its complete
 project source, Gradle wrapper, build configuration, license texts and notices
-are supplied as `Handoff-v0.8.0-source.zip` alongside the APK at:
-https://github.com/gretae-King-1122/Handoff/releases/tag/v0.8.0 .
-The same source is identified by Git tag `v0.8.0`. Build instructions are in
+are supplied as `Handoff-v0.8.1-source.zip` alongside the APK at:
+https://github.com/gretae-King-1122/Handoff/releases/tag/v0.8.1 .
+The same source is identified by Git tag `v0.8.1`. Build instructions are in
 `README.md`; dependencies resolve from the repositories and versions specified
 in the project. Private publishing keys, passwords and machine-local SDK paths
 are not included. Without publishing credentials, build a Debug APK or supply

@@ -29,10 +29,10 @@ Handoff 是一个轻量 LSPosed 模块。点击 QQ 中支持的视频卡片或�
 | 状态与诊断 | 展示真实激活状态、框架信息与入口信号，支持脱敏导出 |
 | 日志与设置 | 绑定环境记录手动测试结果，提供总开关和六类入口开关 |
 
-**当前正式版：[v0.8.0](https://github.com/gretae-King-1122/Handoff/releases/tag/v0.8.0)。**
-216 项 JVM／Robolectric 测试、Debug／Release 构建及应用／UI 模块 Release lint 检查通过。
+**当前正式版：[v0.8.1](https://github.com/gretae-King-1122/Handoff/releases/tag/v0.8.1)。**
+219 项 JVM／Robolectric 测试、Debug／Release 构建及应用／UI 模块 Release lint 检查通过。
 
-> v0.8.0 仅发布 `main` 的 Compose 新界面与原有 B 站／抖音／快手交接功能，**不包含** `dynamic-link-handoff` 分支的动态适配及 Hook 性能修复。从 v0.7.1-dev 升级后，这些试验功能不再提供；原有平台开关和数据保留。
+> v0.8.1 仅发布 `main` 的 Compose 新界面与原有 B 站／抖音／快手交接功能，**不包含** `dynamic-link-handoff` 分支的动态适配及 Hook 性能修复。从 v0.7.1-dev 升级后，这些试验功能不再提供；原有平台开关和数据保留。
 
 > 正式发布不等于所有设备、QQ 版本或热更新时机均已验证；本次正式版本号 APK 未额外装机回归，开发包的用户确认范围见下。
 
@@ -42,9 +42,9 @@ Handoff 是一个轻量 LSPosed 模块。点击 QQ 中支持的视频卡片或�
 
 ## Compose 界面预览
 
-以下为当前源码的离线预览，包含尚未发布的原版图标恢复及“日志”文案调整；已发布 v0.8.0 APK 不包含这些后续修改。
+以下为 v0.8.1 源码的离线预览，已恢复原版图标，第三页统一称为“日志”；不是真机截图。
 
-v0.8.0 采用 **Jetpack Compose + Material 3 / Miuix** 两套组件：Material 底栏直接接入 SukiSU-Ultra 的液态玻璃分支，包括背景模糊、透镜折射、边缘高光及可拖动的弹性指示器；Miuix 接入同款 0.9.4 组件库的导航、卡片、开关和按钮，采用灰底分组列表。完整光学效果要求 Android 13+ 硬件加速；旧系统、软件绘制和减少动效保留降级路径。
+v0.8.1 采用 **Jetpack Compose + Material 3 / Miuix** 两套组件：Material 底栏直接接入 SukiSU-Ultra 的液态玻璃分支，包括背景模糊、透镜折射、边缘高光及可拖动的弹性指示器；Miuix 接入同款 0.9.4 组件库的导航、卡片、开关和按钮，采用灰底分组列表。完整光学效果要求 Android 13+ 硬件加速；旧系统、软件绘制和减少动效保留降级路径。
 
 本版本包含 GPL-3.0 底栏源码；组合应用按 GPL-3.0 分发，原 Apache-2.0 文件保留许可。发行页提供与 APK 匹配的完整项目源码包。来源、改动及完整许可见 [LICENSING.md](LICENSING.md)。
 
@@ -276,7 +276,7 @@ Windows 中文工作目录下若测试 worker 报已编译测试类找不到，�
 
 ## License
 
-v0.8.0 组合应用：[GPL-3.0](LICENSES/GPL-3.0.txt)。原有 Handoff 文件保留 [Apache-2.0](LICENSE) © 2026 Handoff Project Contributors；历史 Apache-only 发行版许可不变。完整说明见 [LICENSING.md](LICENSING.md)。
+v0.8.1 组合应用：[GPL-3.0](LICENSES/GPL-3.0.txt)。原有 Handoff 文件保留 [Apache-2.0](LICENSE) © 2026 Handoff Project Contributors；历史 Apache-only 发行版许可不变。完整说明见 [LICENSING.md](LICENSING.md)。
 
 ## 免责
 
