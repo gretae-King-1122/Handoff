@@ -20,18 +20,22 @@
 ## 简介
 
 Handoff 是一个轻量 LSPosed 模块。点击 QQ / TIM 中支持的视频卡片、B 站个人空间或链接时，
-交给国内版 B 站、抖音或快手 App；普通网页则可交给系统当前的默认浏览器。社交平台和卡片链接保留原有处理方式。保留原有外跳确认；抖音／快手交接默认关闭，可独立开启。
+交给国内版 B 站、抖音或快手 App；普通网页则可交给系统当前的默认浏览器。排除表中的社交平台和卡片域名保留原有处理方式。保留原有外跳确认；抖音／快手交接默认关闭，可独立开启。
 
 | 能力 | 说明 |
 | --- | --- |
 | 打开视频和个人空间 | 用对应 App 打开支持的视频；B 站个人空间链接也可直接打开 |
-| 普通网页 | 使用系统当前的默认浏览器；社交平台、卡片和已支持的视频链接沿用原有处理方式 |
+| 普通网页 | 使用系统当前的默认浏览器；排除表中的社交／卡片域名和已支持的视频链接沿用原有处理方式 |
 | 双风格界面 | Compose Material 3 与 Miuix 两套组件，跟随系统浅色／深色 |
 | 状态与诊断 | 展示真实激活状态、框架信息与入口信号，支持脱敏导出 |
 | 日志与设置 | 绑定环境记录手动测试结果，提供总开关和七类入口开关 |
 
-**当前正式版：[v0.9.1](https://github.com/gretae-King-1122/Handoff/releases/tag/v0.9.1)。**
-249 项 JVM／Robolectric 测试、Debug／Release 构建、应用／UI 模块 Release lint 及 Hook／存储／执行器模块 Debug lint 检查通过（存在非阻断警告）。
+**当前正式版：[v0.10.0](https://github.com/gretae-King-1122/Handoff/releases/tag/v0.10.0)。**
+267 项 JVM／Robolectric 测试、Debug／Release 构建、应用／UI 模块 Release lint 及 Hook／存储／执行器模块 Debug lint 检查通过（存在非阻断警告）。
+
+> **v0.10.0 并入经审计的 [PR #4](https://github.com/gretae-King-1122/Handoff/pull/4)**：已适配 QQ／TIM 浏览器派发入口中的普通 HTTP(S) 网页，交给系统当前可解析的默认浏览器，保留路径、参数和片段。**「用默认浏览器打开」默认开启**（包括升级后原来没有该设置的用户），可单独关闭，也受交接总开关控制；两宿主共用设置。没有可用默认浏览器、查询受限或启动失败时保留原流程，不弹出选择器兜底。
+
+> 普通网页分类基于[域名排除表](module-rules/src/main/java/com/handoff/rules/links/OrdinaryWebLink.java)，包括 B 站、抖音、快手、QQ／微信等已列出的社交／卡片域名及其子域，不是对所有社交站点、卡片或重定向内容的自动识别，也不主动解析短链。默认浏览器查询发生在聊天应用进程；ROM 或宿主版本的包可见性限制可能使其保留原流程。**本版未重新真机验证默认浏览器切换、网页加载或视频交接**；请求被接受不代表目标页面已经显示。
 
 > **v0.9.1 并入经审计的 [PR #3](https://github.com/gretae-King-1122/Handoff/pull/3)**：在已适配的 QQ／TIM 浏览器派发入口，支持 `space.bilibili.com/数字UID` 个人空间链接，复用 B 站网页开关。先发送空间 scheme，再尝试同空间 HTTPS；启动均失败时保留原网页，不降级到 B 站首页。仅验证路由边界及 Android 启动请求，**未进行个人空间真机端到端验收**；请求被接受不代表目标页面已显示。
 
@@ -39,7 +43,7 @@ Handoff 是一个轻量 LSPosed 模块。点击 QQ / TIM 中支持的视频卡�
 
 ### TIM 实机反馈与已知限制（2026-11-02）
 
-2026-11-02 的 v0.9.0-dev / 15 开发包已安装到 PGZ110，以下为用户实机测试反馈；卡片按界面上的标识区分，不据此推断内部消息类型。v0.9.0 / 16 及本次 v0.9.1 / 17 正式包均未额外装机回归：
+2026-11-02 的 v0.9.0-dev / 15 开发包已安装到 PGZ110，以下为用户实机测试反馈；卡片按界面上的标识区分，不据此推断内部消息类型。之后的 v0.9.0 / 16、v0.9.1 / 17 及本次 v0.10.0 / 18 正式包均未额外装机回归：
 
 | TIM 中的卡片标识 | 实机观察 |
 | --- | --- |
@@ -48,7 +52,7 @@ Handoff 是一个轻量 LSPosed 模块。点击 QQ / TIM 中支持的视频卡�
 
 上述提示在模块开启、关闭两种状态下都出现，尚未定位具体原因；当前模块**没有解决或绕过该提示**。请勿将此类卡片列为 TIM 已支持／已验证成功的入口；其他入口、设备及 TIM 版本仍需分别验证。
 
-> v0.9.1 发布 `main` 的 QQ／TIM 交接功能，**不包含** `dynamic-link-handoff` 分支的动态适配及 Hook 性能修复。从 v0.7.1-dev 升级后，这些试验功能不再提供；原有平台开关和数据保留。
+> v0.10.0 发布 `main` 的 QQ／TIM 交接功能，**不包含** `dynamic-link-handoff` 分支的动态适配及 Hook 性能修复。从 v0.7.1-dev 升级后，这些试验功能不再提供；原有平台开关和数据保留。
 
 > 正式发布不等于所有设备、QQ／TIM 版本或热更新时机均已验证；本次正式版本号 APK 未额外装机回归，开发包的用户确认范围见上文 TIM 反馈及下文历史记录。
 
@@ -159,8 +163,8 @@ ClassLoader 补挂正常交接入口；按 Loader 身份和反射 Method 的真�
 
 ## 获取 APK
 
-在 [v0.9.1 正式版](https://github.com/gretae-King-1122/Handoff/releases/tag/v0.9.1) 下载
-`Handoff-v0.9.1.apk`；`SHA256SUMS.txt` 用于校验文件。正式签名兼容此前正式签名包及同签名 0.9.0-dev，
+在 [v0.10.0 正式版](https://github.com/gretae-King-1122/Handoff/releases/tag/v0.10.0) 下载
+`Handoff-v0.10.0.apk`；`SHA256SUMS.txt` 用于校验文件。正式签名兼容此前正式签名包及同签名 0.9.0-dev，
 不能覆盖 Debug 签名包。也可以自行[构建](#构建)。
 
 > 官方 APK 使用独立发布签名。旧 debug 包无法直接覆盖安装，需先在 LSPosed 停用并卸载旧 Handoff，
@@ -293,7 +297,7 @@ Windows 中文工作目录下若测试 worker 报已编译测试类找不到，�
 
 ## License
 
-v0.9.1 组合应用：[GPL-3.0](LICENSES/GPL-3.0.txt)。原有 Handoff 文件保留 [Apache-2.0](LICENSE) © 2026 Handoff Project Contributors；历史 Apache-only 发行版许可不变。完整说明见 [LICENSING.md](LICENSING.md)。
+v0.10.0 组合应用：[GPL-3.0](LICENSES/GPL-3.0.txt)。原有 Handoff 文件保留 [Apache-2.0](LICENSE) © 2026 Handoff Project Contributors；历史 Apache-only 发行版许可不变。完整说明见 [LICENSING.md](LICENSING.md)。
 
 ## 免责
 
