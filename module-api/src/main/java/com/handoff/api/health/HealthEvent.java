@@ -6,7 +6,8 @@ public record HealthEvent(Kind kind, Entry entry, Reason reason) {
     public enum Entry {
         SYSTEM("系统", "system"), BROWSER("B 站视频和个人空间", "browser"), SDK("小程序 SDK", "sdk"),
         SERVICE("小程序服务", "service"), CONTAINER("容器兜底", "container"),
-        DOUYIN("抖音链接（试验）", "douyin"), KUAISHOU("快手链接（试验）", "kuaishou");
+        DOUYIN("抖音链接（试验）", "douyin"), KUAISHOU("快手链接（试验）", "kuaishou"),
+        DEFAULT_BROWSER("普通网页", "default_browser");
         public final String title;
         public final String key;
         Entry(String title, String key) { this.title = title; this.key = key; }
@@ -23,6 +24,7 @@ public record HealthEvent(Kind kind, Entry entry, Reason reason) {
         KUAISHOU_RESOLVE_FAILED("快手短链解析或启动失败，已返回 QQ 浏览器"),
         KUAISHOU_CANCELLED("用户取消快手短链解析"),
         KUAISHOU_FALLBACK_FAILED("快手短链交接失败，QQ 浏览器回退也未成功"),
+        BROWSER_START_FAILED("默认浏览器不可用，保留宿主原流程"),
         SIGNATURE("目标签名无法挂载");
         public final String title;
         Reason(String title) { this.title = title; }

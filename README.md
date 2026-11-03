@@ -1,8 +1,8 @@
 <div align="center">
   <img src="assets/icon.png" width="120" height="120" alt="Handoff 应用图标" />
   <h1>Handoff</h1>
-  <p><strong>QQ / TIM 负责聊天，链接回到对应 App。</strong></p>
-  <p>把 QQ / TIM 中支持的 B 站、抖音和快手视频链接，交给对应 App。</p>
+  <p><strong>聊天留在 QQ / TIM，视频和网页各自打开。</strong></p>
+  <p>支持的视频链接交给对应 App；普通网页可使用系统当前的默认浏览器。</p>
   <p>
     <a href="https://github.com/gretae-King-1122/Handoff/releases/latest"><img src="https://img.shields.io/github/v/release/gretae-King-1122/Handoff?label=Release&amp;logo=github&amp;color=008597" alt="Latest release" /></a>
     <a href="#环境要求"><img src="https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&amp;logoColor=white" alt="Android 8.0+ 编译下限" /></a>
@@ -20,14 +20,15 @@
 ## 简介
 
 Handoff 是一个轻量 LSPosed 模块。点击 QQ / TIM 中支持的视频卡片、B 站个人空间或链接时，
-交给国内版 B 站、抖音或快手 App；保留原有外跳确认。抖音／快手交接默认关闭，可独立开启。
+交给国内版 B 站、抖音或快手 App；普通网页则可交给系统当前的默认浏览器。社交平台和卡片链接保留原有处理方式。保留原有外跳确认；抖音／快手交接默认关闭，可独立开启。
 
 | 能力 | 说明 |
 | --- | --- |
 | 打开视频和个人空间 | 用对应 App 打开支持的视频；B 站个人空间链接也可直接打开 |
+| 普通网页 | 使用系统当前的默认浏览器；社交平台、卡片和已支持的视频链接沿用原有处理方式 |
 | 双风格界面 | Compose Material 3 与 Miuix 两套组件，跟随系统浅色／深色 |
 | 状态与诊断 | 展示真实激活状态、框架信息与入口信号，支持脱敏导出 |
-| 日志与设置 | 绑定环境记录手动测试结果，提供总开关和六类入口开关 |
+| 日志与设置 | 绑定环境记录手动测试结果，提供总开关和七类入口开关 |
 
 **当前正式版：[v0.9.1](https://github.com/gretae-King-1122/Handoff/releases/tag/v0.9.1)。**
 249 项 JVM／Robolectric 测试、Debug／Release 构建、应用／UI 模块 Release lint 及 Hook／存储／执行器模块 Debug lint 检查通过（存在非阻断警告）。
@@ -172,7 +173,7 @@ ClassLoader 补挂正常交接入口；按 Loader 身份和反射 Method 的真�
 3. 作用域勾选使用的 **QQ 和／或 TIM**，不需要勾选 B 站或系统框架（v0.9.0 正式包已包含 TIM；v0.8.1 原正式包不含 TIM）。
 4. 强制停止选中的 QQ／TIM，再重新打开；Handoff 首页切换到对应宿主检查状态。
 5. 如需抖音／快手交接，在 Handoff 设置中独立开启对应试验开关，再强停重开已启用的 QQ／TIM；两宿主共用开关，只开启抖音不会自动开启快手。
-6. 在 QQ／TIM 中点击支持的视频卡片／链接，按原有弹窗确认外跳。
+6. 在 QQ／TIM 中点击支持的视频卡片／链接，按原有弹窗确认外跳；普通网页默认交给系统当前选定的浏览器，可在设置中关闭。
 
 本版提供桌面入口和框架内的模块设置入口；启用模块仍需兼容的 LSPosed 框架。
 更新模块后也建议强停并重开启用的 QQ／TIM；停用时同样操作。
@@ -181,7 +182,7 @@ ClassLoader 补挂正常交接入口；按 Loader 身份和反射 Method 的真�
 
 **点了仍打开 QQ 浏览器？**
 
-先确认模块已启用、作用域已勾选、QQ 已强停重开，并检查链接是否属于支持范围。B 站个人空间需使用 `space.bilibili.com/数字UID` 地址。抖音／快手还需开启各自独立开关；快手短链无法解析时也会返回 QQ 浏览器。
+先确认模块已启用、作用域已勾选、QQ／TIM 已强停重开，并检查链接是否属于支持范围。B 站个人空间需使用 `space.bilibili.com/数字UID` 地址。普通网页受「用默认浏览器打开」开关控制；抖音／快手还需开启各自独立开关，快手短链无法解析时会返回原浏览器。
 QQ 内部派发路径随版本变化，不保证其他版本或其他卡片类型可用。
 
 **为什么还有“是否跳转”的弹窗？**

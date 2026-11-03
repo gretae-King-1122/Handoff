@@ -30,7 +30,7 @@ import java.util.Locale
 
 internal fun LazyListScope.homePage(state: DashboardState, actions: DashboardActions, navigate: (DashboardPage) -> Unit, destination: (String) -> Unit) {
     val data = state.snapshot
-    item("heading") { PageHeading(DashboardPage.HOME, "链接交给对应 App，聊天留在 ${data.hostLabel}。") }
+    item("heading") { PageHeading(DashboardPage.HOME, "视频交给对应 App，普通网页用默认浏览器打开。") }
     item("host") { Panel {
         SectionTitle("聊天应用", "切换后分别检查版本、激活与诊断记录；交接开关共用")
         FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -51,7 +51,7 @@ internal fun LazyListScope.homePage(state: DashboardState, actions: DashboardAct
         }
       } else {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Metric(data.mounted?.toString() ?: "—", "入口挂载记录", "共 6 类入口", Modifier.weight(1f))
+            Metric(data.mounted?.toString() ?: "—", "入口挂载记录", "共 ${HealthEvent.Entry.entries.size - 1} 类入口", Modifier.weight(1f))
             Metric(data.runs.size.toString(), "本机测试记录", "实际结果，由你确认", Modifier.weight(1f))
         }
       }
@@ -112,7 +112,7 @@ internal fun LazyListScope.homePage(state: DashboardState, actions: DashboardAct
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 val status = if (!data.settingsReadable) "设置状态未知" else if (data.setting("enabled")) "已开启" else "已关闭"
-                QuietText("视频交接 · $status", Modifier.weight(1f))
+                QuietText("链接跳转 · $status", Modifier.weight(1f))
                 TextButton(onInspect, modifier = Modifier.testTag("hero-inspect")) { Text("查看诊断") }
             }
         }
@@ -135,7 +135,7 @@ internal fun LazyListScope.homePage(state: DashboardState, actions: DashboardAct
                 Text(data.activation.detail(), color = ink.copy(alpha = 0.82f), style = MaterialTheme.typography.bodyMedium)
                 Row(Modifier.fillMaxWidth().padding(top = 1.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                     val status = if (!data.settingsReadable) "设置状态未知" else if (data.setting("enabled")) "已开启" else "已关闭"
-                    Text("视频交接 · $status", color = ink, style = MaterialTheme.typography.labelSmall)
+                    Text("链接跳转 · $status", color = ink, style = MaterialTheme.typography.labelSmall)
                     TextButton(onInspect, colors = ButtonDefaults.textButtonColors(contentColor = ink), modifier = Modifier.testTag("hero-inspect")) { Text("查看诊断") }
                 }
             }
@@ -218,10 +218,10 @@ internal fun DashboardSnapshot.diagnosis(): Pair<String, String> = when {
     !framework.scopeKnown() -> "${hostLabel} 作用域未知" to "框架已连接，但作用域不可读，请到框架管理器检查。"
     !framework.scoped() -> "需要 ${hostLabel} 作用域" to "请授权模块在 ${hostLabel} 中运行，再强停重开 ${hostLabel}。"
     !current -> "等待本版本上报" to "强停重开 ${hostLabel}，再点击支持的卡片。旧环境记录不用于当前判断。"
-    latestOutcome?.event()?.kind() == HealthEvent.Kind.ACCEPTED -> "已记录视频交接" to "外跳请求已被接受；请手动确认对应作品是否已打开。"
-    latestOutcome?.event()?.kind() == HealthEvent.Kind.LAUNCH_FAILED -> "外跳请求未成功" to "已保留 ${hostLabel} 原流程；请检查对应国内版 App 是否可用。"
+    latestOutcome?.event()?.kind() == HealthEvent.Kind.ACCEPTED -> "已请求打开链接" to "请求已被接受；请确认目标页面是否正确打开。"
+    latestOutcome?.event()?.kind() == HealthEvent.Kind.LAUNCH_FAILED -> "打开请求未成功" to "已保留 ${hostLabel} 原打开方式；请检查目标应用是否可用。"
     latestOutcome?.event()?.kind() == HealthEvent.Kind.PASSED -> "本次保留 ${hostLabel} 原流程" to latestOutcome!!.event().reason().title
-    latestOutcome?.event()?.kind() == HealthEvent.Kind.ENTERED -> "入口已进入，待确认结果" to "入口信号本身不代表视频交接成功。"
+    latestOutcome?.event()?.kind() == HealthEvent.Kind.ENTERED -> "入口已进入，待确认结果" to "打开请求本身不代表目标页面已经显示。"
     else -> "等待真实点击" to "打开 ${hostLabel} 点击支持的视频卡片，然后返回这里刷新。"
 }
 
@@ -234,7 +234,7 @@ internal fun LazyListScope.diagnosticsPage(data: DashboardSnapshot, actions: Das
         QuietText("最近上报 ${timeLabel(org.json.JSONObject(data.healthJson).optLong("at"))} · v${data.moduleName}")
         if (data.framework.connected() && data.framework.scopeKnown() && !data.framework.scoped()) FilledTonalButton(actions::requestScope) { Text("申请 ${data.hostLabel} 作用域") }
     } }
-    item("entries") { ExpandablePanel("入口状态", "6 类入口 · 挂载与交接分开展示", "expand-entries") {
+    item("entries") { ExpandablePanel("入口状态", "${HealthEvent.Entry.entries.size - 1} 类入口 · 挂载与交接分开展示", "expand-entries") {
         com.handoff.api.health.HealthEvent.Entry.entries.filter { it != HealthEvent.Entry.SYSTEM }.forEach { entry ->
             val records = if (data.current) data.evidence.filter { it.event().entry() == entry } else emptyList()
             val accepted = records.count { it.event().kind() == HealthEvent.Kind.ACCEPTED }

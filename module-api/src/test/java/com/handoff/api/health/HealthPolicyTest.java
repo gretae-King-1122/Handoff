@@ -71,6 +71,15 @@ class HealthPolicyTest {
         for (var entry : HealthEvent.Entry.values())
             assertEquals(entry != HealthEvent.Entry.DOUYIN && entry != HealthEvent.Entry.KUAISHOU, entry.defaultEnabled());
     }
+    @Test void defaultBrowserIsEnabledByDefaultAndNeedsItsOwnFreshEvidence() {
+        assertTrue(HealthEvent.Entry.DEFAULT_BROWSER.defaultEnabled());
+        var signal = event(101, 5, 16580, HealthEvent.Kind.ACCEPTED, HealthEvent.Entry.DEFAULT_BROWSER);
+        assertTrue(HealthPolicy.mayConfirm(HealthPolicy.Case.DEFAULT_BROWSER, 100, environment, List.of(signal)));
+        assertFalse(HealthPolicy.mayConfirm(HealthPolicy.Case.DEFAULT_BROWSER, 102, environment, List.of(signal)));
+        for (var entry : HealthEvent.Entry.values()) if (entry != HealthEvent.Entry.DEFAULT_BROWSER)
+            assertFalse(HealthPolicy.mayConfirm(HealthPolicy.Case.DEFAULT_BROWSER, 100, environment,
+                    List.of(event(101, 5, 16580, HealthEvent.Kind.ACCEPTED, entry))));
+    }
     @Test void douyinAndBilibiliEvidenceCannotValidateEachOther() {
         var douyin = event(101, 5, 16580, HealthEvent.Kind.ACCEPTED, HealthEvent.Entry.DOUYIN);
         var bili = event(101, 5, 16580, HealthEvent.Kind.ACCEPTED, HealthEvent.Entry.BROWSER);
