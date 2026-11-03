@@ -5,6 +5,12 @@
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-11-03
+
+### Release
+
+- 发布 v0.9.1 / versionCode 17，审计并合并 PR #3；沿用现有发布证书，提供对应完整源码和 SHA256SUMS。
+
 ### Added
 
 - 支持从已适配的 QQ／TIM 网页派发入口打开 `space.bilibili.com/<数字UID>` 个人空间。先向国内版哔哩哔哩发送 `bilibili://space/<UID>`，未接收时尝试指向同一空间的 HTTPS 地址；全部失败时保留聊天应用原网页流程，不降级到首页。UID 路径、宿主调用方和浏览器目标均经过校验；复用现有 B 站网页开关。
@@ -12,6 +18,12 @@
 ### Changed
 
 - B 站网页设置和手动测试说明现在同时提及视频与个人空间链接。
+
+### Validation
+
+- 249 项 JVM／Robolectric 测试通过（API 17、规则 11、Hook 98、执行器 32、存储 19、UI 72），另有 150 项 QQ／TIM URL 边界检查通过。Debug／Release 构建、应用／UI Release lint 及 Hook／存储／执行器 Debug lint 为 0 错误，应用 21 项、UI 5 项非阻断警告。
+- 核验正式版本号、同发布证书、QQ／TIM 双作用域、APK v2 签名、16 KiB zipalign 和对应版本许可资源。
+- 本次未安装到手机执行 QQ／TIM／B 站个人空间回归；Android 接受请求不等于目标 App 已显示对应页面。TIM 卡片「请到最新版QQ使用」提示仍未解决或绕过，既有开发包有限反馈保留在 README。
 
 ## [0.9.0] - 2026-11-03
 

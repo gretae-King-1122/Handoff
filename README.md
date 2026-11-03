@@ -29,14 +29,16 @@ Handoff 是一个轻量 LSPosed 模块。点击 QQ / TIM 中支持的视频卡�
 | 状态与诊断 | 展示真实激活状态、框架信息与入口信号，支持脱敏导出 |
 | 日志与设置 | 绑定环境记录手动测试结果，提供总开关和六类入口开关 |
 
-**当前正式版：[v0.9.0](https://github.com/gretae-King-1122/Handoff/releases/tag/v0.9.0)。**
-242 项 JVM／Robolectric 测试、Debug／Release 构建、应用／UI 模块 Release lint 及 Hook／存储模块 Debug lint 检查通过（存在非阻断警告）。
+**当前正式版：[v0.9.1](https://github.com/gretae-King-1122/Handoff/releases/tag/v0.9.1)。**
+249 项 JVM／Robolectric 测试、Debug／Release 构建、应用／UI 模块 Release lint 及 Hook／存储／执行器模块 Debug lint 检查通过（存在非阻断警告）。
+
+> **v0.9.1 并入经审计的 [PR #3](https://github.com/gretae-King-1122/Handoff/pull/3)**：在已适配的 QQ／TIM 浏览器派发入口，支持 `space.bilibili.com/数字UID` 个人空间链接，复用 B 站网页开关。先发送空间 scheme，再尝试同空间 HTTPS；启动均失败时保留原网页，不降级到 B 站首页。仅验证路由边界及 Android 启动请求，**未进行个人空间真机端到端验收**；请求被接受不代表目标页面已显示。
 
 > **v0.9.0 新增 TIM `com.tencent.tim` 支持**：依据本地 TIM 4.1.0 / 4050 APK 核对浏览器与小程序入口，已有下述开发包的有限实机反馈，不代表全部场景验收通过。首页可切换 QQ / TIM，分别查看版本、作用域、激活和诊断；交接开关共用。并入经审计的 [PR #2](https://github.com/gretae-King-1122/Handoff/pull/2)，整理 Hook／诊断存储结构并增加异常、重入和会话回归测试；不据代码复杂度分数宣称性能提升。启用方式及静态证据见 [TIM 支持说明](TIM_SUPPORT.md)。
 
 ### TIM 实机反馈与已知限制（2026-11-02）
 
-2026-11-02 的 v0.9.0-dev / 15 开发包已安装到 PGZ110，以下为用户实机测试反馈；卡片按界面上的标识区分，不据此推断内部消息类型。v0.9.0 / 16 正式包未额外装机回归：
+2026-11-02 的 v0.9.0-dev / 15 开发包已安装到 PGZ110，以下为用户实机测试反馈；卡片按界面上的标识区分，不据此推断内部消息类型。v0.9.0 / 16 及本次 v0.9.1 / 17 正式包均未额外装机回归：
 
 | TIM 中的卡片标识 | 实机观察 |
 | --- | --- |
@@ -45,7 +47,7 @@ Handoff 是一个轻量 LSPosed 模块。点击 QQ / TIM 中支持的视频卡�
 
 上述提示在模块开启、关闭两种状态下都出现，尚未定位具体原因；当前模块**没有解决或绕过该提示**。请勿将此类卡片列为 TIM 已支持／已验证成功的入口；其他入口、设备及 TIM 版本仍需分别验证。
 
-> v0.9.0 发布 `main` 的 QQ／TIM 交接功能，**不包含** `dynamic-link-handoff` 分支的动态适配及 Hook 性能修复。从 v0.7.1-dev 升级后，这些试验功能不再提供；原有平台开关和数据保留。
+> v0.9.1 发布 `main` 的 QQ／TIM 交接功能，**不包含** `dynamic-link-handoff` 分支的动态适配及 Hook 性能修复。从 v0.7.1-dev 升级后，这些试验功能不再提供；原有平台开关和数据保留。
 
 > 正式发布不等于所有设备、QQ／TIM 版本或热更新时机均已验证；本次正式版本号 APK 未额外装机回归，开发包的用户确认范围见上文 TIM 反馈及下文历史记录。
 
@@ -156,8 +158,8 @@ ClassLoader 补挂正常交接入口；按 Loader 身份和反射 Method 的真�
 
 ## 获取 APK
 
-在 [v0.9.0 正式版](https://github.com/gretae-King-1122/Handoff/releases/tag/v0.9.0) 下载
-`Handoff-v0.9.0.apk`；`SHA256SUMS.txt` 用于校验文件。正式签名兼容此前正式签名包及同签名 0.9.0-dev，
+在 [v0.9.1 正式版](https://github.com/gretae-King-1122/Handoff/releases/tag/v0.9.1) 下载
+`Handoff-v0.9.1.apk`；`SHA256SUMS.txt` 用于校验文件。正式签名兼容此前正式签名包及同签名 0.9.0-dev，
 不能覆盖 Debug 签名包。也可以自行[构建](#构建)。
 
 > 官方 APK 使用独立发布签名。旧 debug 包无法直接覆盖安装，需先在 LSPosed 停用并卸载旧 Handoff，
@@ -290,7 +292,7 @@ Windows 中文工作目录下若测试 worker 报已编译测试类找不到，�
 
 ## License
 
-v0.9.0 组合应用：[GPL-3.0](LICENSES/GPL-3.0.txt)。原有 Handoff 文件保留 [Apache-2.0](LICENSE) © 2026 Handoff Project Contributors；历史 Apache-only 发行版许可不变。完整说明见 [LICENSING.md](LICENSING.md)。
+v0.9.1 组合应用：[GPL-3.0](LICENSES/GPL-3.0.txt)。原有 Handoff 文件保留 [Apache-2.0](LICENSE) © 2026 Handoff Project Contributors；历史 Apache-only 发行版许可不变。完整说明见 [LICENSING.md](LICENSING.md)。
 
 ## 免责
 
