@@ -123,6 +123,7 @@ class ComposeDashboardTest {
         show(actions = object : DashboardActions { override fun setSetting(key: String, enabled: Boolean) { writes++ } })
         navigate(DashboardPage.SETTINGS)
         settingsItem("setting-enabled"); compose.onNodeWithTag("setting-enabled").assertIsNotEnabled()
+        settingsItem("setting-default_browser"); compose.onNodeWithTag("setting-default_browser").assertIsOn().assertIsNotEnabled()
         listOf("douyin", "kuaishou").forEach { key ->
             settingsItem("setting-$key")
             compose.onNodeWithTag("setting-$key").assertIsOff().assertIsNotEnabled()
@@ -132,13 +133,14 @@ class ComposeDashboardTest {
 
     @Test fun readableSettingsDispatchIndependentKeysAndDisablePendingWrites() {
         val writes = mutableListOf<Pair<String, Boolean>>()
-        show(offline.copy(snapshot = offline.snapshot.copy(settingsReadable = true, settings = mapOf("douyin" to true, "kuaishou" to false)), pendingSettings = setOf("enabled")),
+        show(offline.copy(snapshot = offline.snapshot.copy(settingsReadable = true, settings = mapOf("default_browser" to true, "douyin" to true, "kuaishou" to false)), pendingSettings = setOf("enabled")),
             object : DashboardActions { override fun setSetting(key: String, enabled: Boolean) { writes += key to enabled } })
         navigate(DashboardPage.SETTINGS)
         settingsItem("setting-enabled"); compose.onNodeWithTag("setting-enabled").assertIsNotEnabled()
+        settingsItem("setting-default_browser"); compose.onNodeWithTag("setting-default_browser").assertIsOn().performClick()
         settingsItem("setting-douyin"); compose.onNodeWithTag("setting-douyin").assertIsOn().performClick()
         settingsItem("setting-kuaishou"); compose.onNodeWithTag("setting-kuaishou").assertIsOff().performClick()
-        assertEquals(listOf("douyin" to false, "kuaishou" to true), writes)
+        assertEquals(listOf("default_browser" to false, "douyin" to false, "kuaishou" to true), writes)
     }
 
     @Test fun appearanceSheetWorksWithoutFrameworkAndKeepsCurrentPage() {
@@ -169,7 +171,7 @@ class ComposeDashboardTest {
         show(offline.copy(snapshot = offline.snapshot.copy(framework = FrameworkSnapshot(true, "LSPosed", "2.2.1", 1, 102, true, true, FrameworkSnapshot.RuntimeState.CURRENT),
             settingsReadable = true, settings = mapOf("enabled" to false))))
         compose.onNodeWithText("已在 QQ 激活").assertIsDisplayed()
-        compose.onNodeWithText("视频交接 · 已关闭").assertIsDisplayed()
+        compose.onNodeWithText("链接跳转 · 已关闭").assertIsDisplayed()
     }
 
     @Test fun startRoundNeedsExplicitConfirmationAndCancelDoesNothing() {

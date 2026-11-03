@@ -14,6 +14,7 @@ import java.lang.reflect.Method;
 import com.handoff.api.health.HealthEvent;
 import com.handoff.api.links.ParsedLink;
 import com.handoff.executor.BilibiliSpaceLauncher;
+import com.handoff.executor.DefaultBrowserLauncher;
 import com.handoff.executor.DouyinLauncher;
 import com.handoff.executor.KuaishouLauncher;
 
@@ -79,6 +80,7 @@ final class BrowserHandoff {
         HealthReports.emit(reporter, kind, HealthEvent.Entry.BROWSER, reason);
         HealthReports.emit(reporter, kind, HealthEvent.Entry.DOUYIN, reason);
         HealthReports.emit(reporter, kind, HealthEvent.Entry.KUAISHOU, reason);
+        HealthReports.emit(reporter, kind, HealthEvent.Entry.DEFAULT_BROWSER, reason);
     }
 
     private Object intercept(XposedInterface.Chain chain) throws Throwable {
@@ -111,7 +113,14 @@ final class BrowserHandoff {
         if (kuaishou != null) return redirectKuaishou(activity, outgoing, kuaishou);
         BrowserDispatch.Target bili = BrowserDispatch.target(caller,
                 target.getPackageName(), target.getClassName(), url, reporter.profile().contract());
-        return bili != null && redirectBili(activity, url, bili, start);
+        if (bili != null) {
+            if (bili.kind() == BrowserDispatch.Kind.SPACE && !pilotCallerSupported(activity, outgoing)) return false;
+            return redirectBili(activity, url, bili, start);
+        }
+        if (!DefaultBrowserDispatch.matches(caller, target.getPackageName(), target.getClassName(), url,
+                activity.isDestroyed(), outgoing.getSelector() != null,
+                (outgoing.getFlags() & Intent.FLAG_ACTIVITY_FORWARD_RESULT) != 0, reporter.profile().contract())) return false;
+        return DefaultBrowserHandoff.redirect(() -> DefaultBrowserLauncher.launch(activity, url), reporter);
     }
 
     private static boolean pilotCallerSupported(Activity activity, Intent outgoing) {

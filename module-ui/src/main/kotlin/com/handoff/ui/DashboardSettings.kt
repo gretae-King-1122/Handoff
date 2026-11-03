@@ -52,6 +52,10 @@ internal fun LazyListScope.settingsPage(state: DashboardState, actions: Dashboar
         SectionTitle("交接控制", if (data.settingsReadable) "修改后强停重开 ${data.hostLabel}，确保当前进程应用设置" else if (data.framework.connected()) "设置读取失败，当前值未知；开关只读" else "框架未连接，当前值未知；开关只读")
         SettingSwitch("交接总开关", "所有支持入口的总控制", "enabled", state, actions)
     } }
+    item("default-browser") { Panel {
+        SectionTitle("普通网页", "排除社交平台与已支持的视频链接")
+        SettingSwitch("用默认浏览器打开", "使用系统当前选定的浏览器；未设置时保留 ${data.hostLabel} 原打开方式。", "default_browser", state, actions)
+    } }
     item("bilibili") { Panel {
         SectionTitle("哔哩哔哩", "已有入口保持原来的默认值")
         HealthEvent.Entry.entries.filter { it in setOf(HealthEvent.Entry.BROWSER, HealthEvent.Entry.SDK, HealthEvent.Entry.SERVICE, HealthEvent.Entry.CONTAINER) }.forEach { entry ->
@@ -140,7 +144,7 @@ internal fun LazyListScope.regressionPage(state: DashboardState, actions: Dashbo
             Icon(Icons.AutoMirrored.Rounded.List, null, Modifier.padding(18.dp).size(32.dp), tint = MaterialTheme.colorScheme.primary)
         }
         Text("好的记录，从第一次确认开始", style = MaterialTheme.typography.titleLarge)
-        Text("还没有测试轮次。新一轮的六项测试都会从未验证开始。", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("还没有测试轮次。新一轮的 ${HealthPolicy.Case.entries.size} 项测试都会从未验证开始。", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         QuietText("每轮绑定当前 ${data.hostLabel}、Android、框架与模块版本；不会预填开发设备的结果。")
     } } else {
         val same = run.environment == data.environment.key()
@@ -149,7 +153,7 @@ internal fun LazyListScope.regressionPage(state: DashboardState, actions: Dashbo
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
                 Box(contentAlignment = Alignment.Center) {
                     CircularProgressIndicator({ progress }, Modifier.size(62.dp), strokeWidth = 5.dp, trackColor = MaterialTheme.colorScheme.primaryContainer)
-                    Text("${run.completed}/6", style = MaterialTheme.typography.titleMedium)
+                    Text("${run.completed}/${HealthPolicy.Case.entries.size}", style = MaterialTheme.typography.titleMedium)
                 }
                 Column { Text("当前轮次 ${timeLabel(run.started, true)}", style = MaterialTheme.typography.titleMedium); QuietText("通过 ${run.passed} · 未通过 ${run.failed}") }
             }
