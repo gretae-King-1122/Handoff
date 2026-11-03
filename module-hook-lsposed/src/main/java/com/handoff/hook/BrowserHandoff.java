@@ -28,108 +28,136 @@ final class BrowserHandoff {
 
     private static final String BILI_PACKAGE = "tv.danmaku.bili";
     private static final MethodInstallGuard INSTALLATIONS = new MethodInstallGuard();
+    private final LsposedBackend.Reporter reporter;
 
-    private BrowserHandoff() {
+    private BrowserHandoff(LsposedBackend.Reporter reporter) {
+        this.reporter = reporter;
     }
 
     static void install(XposedInterface xposed, ClassLoader cl, LsposedBackend.Reporter reporter) {
+        new BrowserHandoff(reporter).install(xposed, cl);
+    }
+
+    private void install(XposedInterface xposed, ClassLoader cl) {
         Class<?> dispatchClass;
         try {
             dispatchClass = Class.forName(reporter.profile().contract().browserDispatch(), false, cl);
         } catch (Throwable t) {
             warn(reporter, "HANDOFF 找不到浏览器派发类", t);
-            HealthReports.emit(reporter, HealthEvent.Kind.INSTALL_FAILED, HealthEvent.Entry.BROWSER, HealthEvent.Reason.SIGNATURE);
-            HealthReports.emit(reporter, HealthEvent.Kind.INSTALL_FAILED, HealthEvent.Entry.DOUYIN, HealthEvent.Reason.SIGNATURE);
-            HealthReports.emit(reporter, HealthEvent.Kind.INSTALL_FAILED, HealthEvent.Entry.KUAISHOU, HealthEvent.Reason.SIGNATURE);
+            reportInstallation(HealthEvent.Kind.INSTALL_FAILED);
             return;
         }
         int installed = 0;
         // QQ 9.3.75 declares both overloads on this QQ-owned class; never hook a shared onCreate.
         for (Class<?>[] signature : new Class<?>[][]{
                 {Intent.class}, {Intent.class, Bundle.class}}) {
-            try {
-                Method method = dispatchClass.getDeclaredMethod("startActivity", signature);
-                if (method.getReturnType() != void.class) continue;
-                boolean added = INSTALLATIONS.install(method, () -> xposed.hook(method)
-                        .setPriority(XposedInterface.PRIORITY_HIGHEST)
-                        .intercept(chain -> {
-                            Object self = chain.getThisObject();
-                            // Most calls on QBaseActivity aren't browser delegation; pass through immediately.
-                            if (!(self instanceof Activity) || !BrowserDispatch.delegationCaller(self.getClass(), reporter.profile().contract())) {
-                                return chain.proceed();
-                            }
-                            return BrowserDispatch.intercept(() -> {
-                                long start = SystemClock.elapsedRealtimeNanos();
-                                Object arg = chain.getArgs().get(0);
-                                if (!(arg instanceof Intent)) return false;
-                                Intent outgoing = (Intent) arg;
-                                ComponentName target = outgoing.getComponent();
-                                if (target == null) return false;
-                                String url = outgoing.getStringExtra("url");
-                                // Independent opt-in pilot. Do not change Bilibili matching, launch order or fallback.
-                                ParsedLink douyin = DouyinBrowserDispatch.parse(self.getClass().getName(),
-                                        target.getPackageName(), target.getClassName(), url, reporter.profile().contract());
-                                if (douyin != null) {
-                                    if (((Activity) self).isDestroyed() || outgoing.getSelector() != null
-                                            || (outgoing.getFlags() & Intent.FLAG_ACTIVITY_FORWARD_RESULT) != 0) return false;
-                                    return DouyinHandoff.redirect(() -> DouyinLauncher.launch((Activity) self, douyin), reporter);
-                                }
-                                ParsedLink kuaishou = KuaishouBrowserDispatch.parse(self.getClass().getName(),
-                                        target.getPackageName(), target.getClassName(), url, reporter.profile().contract());
-                                if (kuaishou != null) {
-                                    if (((Activity) self).isDestroyed() || outgoing.getSelector() != null
-                                            || (outgoing.getFlags() & Intent.FLAG_ACTIVITY_FORWARD_RESULT) != 0) return false;
-                                    if (kuaishou.kind() == ParsedLink.Kind.SHORT_LINK) {
-                                        return KuaishouHandoff.redirectShort(completion -> KuaishouLauncher.resolveShort(
-                                                (Activity) self, kuaishou, outgoing,
-                                                new ResultReceiver(new Handler(Looper.getMainLooper())) {
-                                                    @Override protected void onReceiveResult(int code, Bundle data) {
-                                                        completion.complete(switch (code) {
-                                                            case KuaishouLauncher.STARTED -> KuaishouHandoff.ShortResult.ACCEPTED;
-                                                            case KuaishouLauncher.CANCELLED -> KuaishouHandoff.ShortResult.CANCELLED;
-                                                            case KuaishouLauncher.FALLBACK_FAILED -> KuaishouHandoff.ShortResult.FALLBACK_FAILED;
-                                                            default -> KuaishouHandoff.ShortResult.FAILED;
-                                                        });
-                                                    }
-                                                }), reporter);
-                                    }
-                                    return KuaishouHandoff.redirect(() -> KuaishouLauncher.launch((Activity) self, kuaishou), reporter);
-                                }
-                                String id = BrowserDispatch.videoId(self.getClass().getName(),
-                                        target.getPackageName(), target.getClassName(), url, reporter.profile().contract());
-                                if (id == null) return false;
-                                HealthReports.emit(reporter, HealthEvent.Kind.ENTERED, HealthEvent.Entry.BROWSER);
-                                if (!HealthReports.enabled(reporter, HealthEvent.Entry.BROWSER)) return false;
-                                long matched = SystemClock.elapsedRealtimeNanos();
-                                String how = launch((Activity) self, url, id);
-                                long accepted = SystemClock.elapsedRealtimeNanos();
-                                if (how == null) {
-                                    warn(reporter, "HANDOFF 外跳失败，放行宿主浏览器 package=" + reporter.profile().packageName() + " id=" + id, null);
-                                    HealthReports.emit(reporter, HealthEvent.Kind.LAUNCH_FAILED, HealthEvent.Entry.BROWSER, HealthEvent.Reason.START_FAILED);
-                                    return false;
-                                }
-                                // Logging must not turn an accepted launch into fail-open. No query tokens in logs.
-                                info(reporter, "HANDOFF blocked host browser package=" + reporter.profile().packageName() + " id=" + id + " via " + how
-                                        + " matchUs=" + (matched - start) / 1_000
-                                        + " launchUs=" + (accepted - matched) / 1_000
-                                        + " totalUs=" + (accepted - start) / 1_000);
-                                HealthReports.emit(reporter, HealthEvent.Kind.ACCEPTED, HealthEvent.Entry.BROWSER);
-                                return true;
-                            }, chain::proceed);
-                        }));
-                installed++;
-                if (added) info(reporter, "HANDOFF dispatch installed " + method);
-                HealthReports.emit(reporter, HealthEvent.Kind.INSTALLED, HealthEvent.Entry.BROWSER);
-                HealthReports.emit(reporter, HealthEvent.Kind.INSTALLED, HealthEvent.Entry.DOUYIN);
-                HealthReports.emit(reporter, HealthEvent.Kind.INSTALLED, HealthEvent.Entry.KUAISHOU);
-            } catch (Throwable t) {
-                warn(reporter, "HANDOFF startActivity/" + signature.length + " 挂载失败", t);
-                HealthReports.emit(reporter, HealthEvent.Kind.INSTALL_FAILED, HealthEvent.Entry.BROWSER, HealthEvent.Reason.SIGNATURE);
-                HealthReports.emit(reporter, HealthEvent.Kind.INSTALL_FAILED, HealthEvent.Entry.DOUYIN, HealthEvent.Reason.SIGNATURE);
-                HealthReports.emit(reporter, HealthEvent.Kind.INSTALL_FAILED, HealthEvent.Entry.KUAISHOU, HealthEvent.Reason.SIGNATURE);
-            }
+            if (installOverload(xposed, dispatchClass, signature)) installed++;
         }
         if (installed == 0) warn(reporter, "HANDOFF 没有可用派发点，保留宿主原行为", null);
+    }
+
+    private boolean installOverload(XposedInterface xposed, Class<?> dispatchClass, Class<?>[] signature) {
+        try {
+            Method method = dispatchClass.getDeclaredMethod("startActivity", signature);
+            if (method.getReturnType() != void.class) return false;
+            boolean added = INSTALLATIONS.install(method, () -> xposed.hook(method)
+                    .setPriority(XposedInterface.PRIORITY_HIGHEST).intercept(this::intercept));
+            if (added) info(reporter, "HANDOFF dispatch installed " + method);
+            reportInstallation(HealthEvent.Kind.INSTALLED);
+            return true;
+        } catch (Throwable t) {
+            warn(reporter, "HANDOFF startActivity/" + signature.length + " 挂载失败", t);
+            reportInstallation(HealthEvent.Kind.INSTALL_FAILED);
+            return false;
+        }
+    }
+
+    private void reportInstallation(HealthEvent.Kind kind) {
+        HealthEvent.Reason reason = kind == HealthEvent.Kind.INSTALL_FAILED
+                ? HealthEvent.Reason.SIGNATURE : HealthEvent.Reason.NONE;
+        HealthReports.emit(reporter, kind, HealthEvent.Entry.BROWSER, reason);
+        HealthReports.emit(reporter, kind, HealthEvent.Entry.DOUYIN, reason);
+        HealthReports.emit(reporter, kind, HealthEvent.Entry.KUAISHOU, reason);
+    }
+
+    private Object intercept(XposedInterface.Chain chain) throws Throwable {
+        Object self = chain.getThisObject();
+        // Unrelated QBaseActivity calls exit before allocating redirect closures.
+        if (!(self instanceof Activity activity)
+                || !BrowserDispatch.delegationCaller(self.getClass(), reporter.profile().contract())) {
+            return chain.proceed();
+        }
+        // Only extraction/launch errors fail open; the original invocation stays outside that catch.
+        return BrowserDispatch.intercept(() -> redirect(activity, chain.getArgs().get(0)), chain::proceed);
+    }
+
+    private boolean redirect(Activity activity, Object argument) {
+        long start = SystemClock.elapsedRealtimeNanos();
+        if (!(argument instanceof Intent outgoing)) return false;
+        ComponentName target = outgoing.getComponent();
+        if (target == null) return false;
+        String url = outgoing.getStringExtra("url");
+        String caller = activity.getClass().getName();
+        // Keep platform precedence and each platform's existing matching/fallback policy.
+        ParsedLink douyin = DouyinBrowserDispatch.parse(caller,
+                target.getPackageName(), target.getClassName(), url, reporter.profile().contract());
+        if (douyin != null) {
+            if (!pilotCallerSupported(activity, outgoing)) return false;
+            return DouyinHandoff.redirect(() -> DouyinLauncher.launch(activity, douyin), reporter);
+        }
+        ParsedLink kuaishou = KuaishouBrowserDispatch.parse(caller,
+                target.getPackageName(), target.getClassName(), url, reporter.profile().contract());
+        if (kuaishou != null) return redirectKuaishou(activity, outgoing, kuaishou);
+        String id = BrowserDispatch.videoId(caller,
+                target.getPackageName(), target.getClassName(), url, reporter.profile().contract());
+        return id != null && redirectBili(activity, url, id, start);
+    }
+
+    private static boolean pilotCallerSupported(Activity activity, Intent outgoing) {
+        return !activity.isDestroyed() && outgoing.getSelector() == null
+                && (outgoing.getFlags() & Intent.FLAG_ACTIVITY_FORWARD_RESULT) == 0;
+    }
+
+    private boolean redirectKuaishou(Activity activity, Intent outgoing, ParsedLink link) {
+        if (!pilotCallerSupported(activity, outgoing)) return false;
+        if (link.kind() == ParsedLink.Kind.SHORT_LINK) {
+            return KuaishouHandoff.redirectShort(completion -> KuaishouLauncher.resolveShort(
+                    activity, link, outgoing, shortLinkReceiver(completion)), reporter);
+        }
+        return KuaishouHandoff.redirect(() -> KuaishouLauncher.launch(activity, link), reporter);
+    }
+
+    private static ResultReceiver shortLinkReceiver(KuaishouHandoff.Completion completion) {
+        return new ResultReceiver(new Handler(Looper.getMainLooper())) {
+            @Override protected void onReceiveResult(int code, Bundle data) {
+                completion.complete(switch (code) {
+                    case KuaishouLauncher.STARTED -> KuaishouHandoff.ShortResult.ACCEPTED;
+                    case KuaishouLauncher.CANCELLED -> KuaishouHandoff.ShortResult.CANCELLED;
+                    case KuaishouLauncher.FALLBACK_FAILED -> KuaishouHandoff.ShortResult.FALLBACK_FAILED;
+                    default -> KuaishouHandoff.ShortResult.FAILED;
+                });
+            }
+        };
+    }
+
+    private boolean redirectBili(Activity activity, String url, String id, long start) {
+        HealthReports.emit(reporter, HealthEvent.Kind.ENTERED, HealthEvent.Entry.BROWSER);
+        if (!HealthReports.enabled(reporter, HealthEvent.Entry.BROWSER)) return false;
+        long matched = SystemClock.elapsedRealtimeNanos();
+        String how = launch(activity, url, id);
+        long accepted = SystemClock.elapsedRealtimeNanos();
+        if (how == null) {
+            warn(reporter, "HANDOFF 外跳失败，放行宿主浏览器 package=" + reporter.profile().packageName() + " id=" + id, null);
+            HealthReports.emit(reporter, HealthEvent.Kind.LAUNCH_FAILED, HealthEvent.Entry.BROWSER, HealthEvent.Reason.START_FAILED);
+            return false;
+        }
+        // Logging must not turn an accepted launch into fail-open. No query tokens in logs.
+        info(reporter, "HANDOFF blocked host browser package=" + reporter.profile().packageName() + " id=" + id + " via " + how
+                + " matchUs=" + (matched - start) / 1_000
+                + " launchUs=" + (accepted - matched) / 1_000
+                + " totalUs=" + (accepted - start) / 1_000);
+        HealthReports.emit(reporter, HealthEvent.Kind.ACCEPTED, HealthEvent.Entry.BROWSER);
+        return true;
     }
 
     private static void info(LsposedBackend.Reporter reporter, String message) {

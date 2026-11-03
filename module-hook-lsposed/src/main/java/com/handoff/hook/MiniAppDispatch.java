@@ -43,30 +43,37 @@ final class MiniAppDispatch {
             IN_DISPATCH.set(state);
         }
         try {
-            boolean accepted = false;
-            try {
-                if (!state.launching) {
-                    MiniAppVideo video = MiniAppVideo.read(model);
-                    if (video != null) {
-                        Boolean previous = state.outcomes.get(video.id());
-                        if (previous != null) accepted = previous;
-                        else {
-                            // Mark failure before invoking external code, including throwing launchers.
-                            state.outcomes.put(video.id(), false);
-                            state.launching = true;
-                            try {
-                                accepted = launcher.launch(video);
-                                if (accepted) state.outcomes.put(video.id(), true);
-                            } finally { state.launching = false; }
-                        }
-                    }
-                }
-            } catch (Throwable ignored) {
-                // Extraction / launch errors pass through. QQ's exception must never retry proceed().
-            }
+            boolean accepted = tryLaunch(model, launcher, state);
             return accepted ? null : original.proceed(); // exact hooked signature returns void
         } finally {
             if (root) IN_DISPATCH.remove();
+        }
+    }
+
+    private static boolean tryLaunch(Object model, Launcher launcher, DispatchState state) {
+        try {
+            if (state.launching) return false;
+            MiniAppVideo video = MiniAppVideo.read(model);
+            if (video == null) return false;
+            Boolean previous = state.outcomes.get(video.id());
+            if (previous != null) return previous;
+            return launchOnce(video, launcher, state);
+        } catch (Throwable ignored) {
+            // Only extraction/launch errors fail open. Host errors propagate through intercept.
+            return false;
+        }
+    }
+
+    private static boolean launchOnce(MiniAppVideo video, Launcher launcher, DispatchState state) throws Throwable {
+        // Record failure before external code: throwing/reentrant launchers must not repeat attempts.
+        state.outcomes.put(video.id(), false);
+        state.launching = true;
+        try {
+            boolean accepted = launcher.launch(video);
+            if (accepted) state.outcomes.put(video.id(), true);
+            return accepted;
+        } finally {
+            state.launching = false;
         }
     }
 }
