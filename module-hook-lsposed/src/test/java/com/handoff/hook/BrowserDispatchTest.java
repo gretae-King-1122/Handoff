@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import com.handoff.api.health.QqAdapters;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -13,6 +14,50 @@ class BrowserDispatchTest {
     private static final String QQ = "com.tencent.mobileqq";
     private static final String BROWSER = "com.tencent.mobileqq.activity.QQBrowserActivity";
     private static final String VIDEO = "https://www.bilibili.com/video/BV1xx411c7mD?share_source=qq";
+
+    @Test void recognizesPersonalSpaceLinksWithoutTreatingThemAsVideoIds() {
+        for (String url : List.of("https://space.bilibili.com/14606305",
+                "http://space.bilibili.com:80/14606305/",
+                "HTTPS://SPACE.BILIBILI.COM:443/14606305?share_source=qq&mid=999#video")) {
+            assertEquals(new BrowserDispatch.Target(BrowserDispatch.Kind.SPACE, "14606305"),
+                    BrowserDispatch.target(DELEGATE, QQ, BROWSER, url, QqAdapters.STRICT), url);
+            assertNull(BrowserDispatch.videoId(DELEGATE, QQ, BROWSER, url));
+        }
+        assertEquals(new BrowserDispatch.Target(BrowserDispatch.Kind.VIDEO, "BV1xx411c7mD"),
+                BrowserDispatch.target(DELEGATE, QQ, BROWSER, VIDEO, QqAdapters.STRICT));
+    }
+
+    @Test void personalSpaceLinksKeepTheExistingStrictQqAndTimBoundary() {
+        String url = "https://space.bilibili.com/14606305";
+        for (QqAdapters.Contract contract : List.of(QqAdapters.STRICT, QqAdapters.TIM_STRICT)) {
+            for (String browser : contract.browsers()) {
+                assertNotNull(BrowserDispatch.target(contract.browserCaller(), contract.packageName(), browser, url, contract));
+                assertNull(BrowserDispatch.target("other.Activity", contract.packageName(), browser, url, contract));
+                assertNull(BrowserDispatch.target(contract.browserCaller(), "other.package", browser, url, contract));
+                assertNull(BrowserDispatch.target(contract.browserCaller(), contract.packageName(), "other.Browser", url, contract));
+            }
+            String otherHost = contract == QqAdapters.STRICT ? "com.tencent.tim" : "com.tencent.mobileqq";
+            assertNull(BrowserDispatch.target(contract.browserCaller(), otherHost, contract.browsers().get(0), url, contract));
+        }
+    }
+
+    @Test void invalidOrSpoofedPersonalSpaceLinksKeepTheOriginalBrowser() throws Throwable {
+        String[] urls = { null, "", "https://space.bilibili.com/", "https://space.bilibili.com/0",
+                "https://space.bilibili.com/-1", "https://space.bilibili.com/014606305",
+                "https://space.bilibili.com/9223372036854775808", "https://space.bilibili.com/14606305/video",
+                "https://space.bilibili.com/%31%34%36%30%36%33%30%35", "https://space.bilibili.com//14606305",
+                "https://space.bilibili.com/video/BV1xx411c7mD", "https://space.bilibili.com/?mid=14606305",
+                "https://space.bilibili.com.evil.example/14606305", "https://www.bilibili.com/14606305",
+                "https://space.bilibili.com@evil.example/14606305", "https://evil.example@space.bilibili.com/14606305",
+                "https://space.bilibili.com:444/14606305", "https://space.bilibili.com./14606305",
+                "javascript://space.bilibili.com/14606305", "bilibili://space/14606305" };
+        for (String url : urls) {
+            AtomicInteger original = new AtomicInteger();
+            BrowserDispatch.intercept(() -> BrowserDispatch.target(DELEGATE, QQ, BROWSER, url, QqAdapters.STRICT) != null,
+                    original::incrementAndGet);
+            assertEquals(1, original.get(), String.valueOf(url));
+        }
+    }
 
     @Test void patchedDelegationCallerDoesNotRequireTheInitiallyResolvedClassIdentity() throws Exception {
         Class<?> initial = com.tencent.mobileqq.activity.QQBrowserDelegationActivity.class;
