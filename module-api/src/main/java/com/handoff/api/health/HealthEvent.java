@@ -4,7 +4,7 @@ package com.handoff.api.health;
 public record HealthEvent(Kind kind, Entry entry, Reason reason) {
     public enum Kind { SESSION, LOADER_BOUND, INSTALLED, INSTALL_FAILED, ENTERED, PASSED, ACCEPTED, LAUNCH_FAILED }
     public enum Entry {
-        SYSTEM("系统", "system"), BROWSER("网页跳板", "browser"), SDK("小程序 SDK", "sdk"),
+        SYSTEM("系统", "system"), BROWSER("B 站视频和个人空间", "browser"), SDK("小程序 SDK", "sdk"),
         SERVICE("小程序服务", "service"), CONTAINER("容器兜底", "container"),
         DOUYIN("抖音链接（试验）", "douyin"), KUAISHOU("快手链接（试验）", "kuaishou");
         public final String title;

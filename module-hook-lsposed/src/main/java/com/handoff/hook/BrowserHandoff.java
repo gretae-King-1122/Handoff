@@ -13,13 +13,14 @@ import android.os.SystemClock;
 import java.lang.reflect.Method;
 import com.handoff.api.health.HealthEvent;
 import com.handoff.api.links.ParsedLink;
+import com.handoff.executor.BilibiliSpaceLauncher;
 import com.handoff.executor.DouyinLauncher;
 import com.handoff.executor.KuaishouLauncher;
 
 import io.github.libxposed.api.XposedInterface;
 
 /**
- * M2：在 QQ 跳板页发出内置浏览器 Intent 之前交接 B 站视频。
+ * 在 QQ／TIM 跳板页发出内置浏览器 Intent 之前打开 B 站视频或个人空间。
  *
  * <p>不能在 onCreate 的 proceed() 之后 finish：QQ 已在 doOnCreate 里启动浏览器。
  * 只阻断该跳板页的 startActivity，不跳过生命周期；QQ 原代码负责 finish 跳板页。
@@ -108,9 +109,9 @@ final class BrowserHandoff {
         ParsedLink kuaishou = KuaishouBrowserDispatch.parse(caller,
                 target.getPackageName(), target.getClassName(), url, reporter.profile().contract());
         if (kuaishou != null) return redirectKuaishou(activity, outgoing, kuaishou);
-        String id = BrowserDispatch.videoId(caller,
+        BrowserDispatch.Target bili = BrowserDispatch.target(caller,
                 target.getPackageName(), target.getClassName(), url, reporter.profile().contract());
-        return id != null && redirectBili(activity, url, id, start);
+        return bili != null && redirectBili(activity, url, bili, start);
     }
 
     private static boolean pilotCallerSupported(Activity activity, Intent outgoing) {
@@ -140,19 +141,22 @@ final class BrowserHandoff {
         };
     }
 
-    private boolean redirectBili(Activity activity, String url, String id, long start) {
+    private boolean redirectBili(Activity activity, String url, BrowserDispatch.Target target, long start) {
         HealthReports.emit(reporter, HealthEvent.Kind.ENTERED, HealthEvent.Entry.BROWSER);
         if (!HealthReports.enabled(reporter, HealthEvent.Entry.BROWSER)) return false;
         long matched = SystemClock.elapsedRealtimeNanos();
-        String how = launch(activity, url, id);
+        boolean space = target.kind() == BrowserDispatch.Kind.SPACE;
+        String how = space ? (BilibiliSpaceLauncher.launch(activity, target.id()) ? "personal-space" : null)
+                : launch(activity, url, target.id());
         long accepted = SystemClock.elapsedRealtimeNanos();
+        String detail = space ? "personal-space" : "id=" + target.id();
         if (how == null) {
-            warn(reporter, "HANDOFF 外跳失败，放行宿主浏览器 package=" + reporter.profile().packageName() + " id=" + id, null);
+            warn(reporter, "HANDOFF 外跳失败，放行宿主浏览器 package=" + reporter.profile().packageName() + " " + detail, null);
             HealthReports.emit(reporter, HealthEvent.Kind.LAUNCH_FAILED, HealthEvent.Entry.BROWSER, HealthEvent.Reason.START_FAILED);
             return false;
         }
         // Logging must not turn an accepted launch into fail-open. No query tokens in logs.
-        info(reporter, "HANDOFF blocked host browser package=" + reporter.profile().packageName() + " id=" + id + " via " + how
+        info(reporter, "HANDOFF blocked host browser package=" + reporter.profile().packageName() + " " + detail + " via " + how
                 + " matchUs=" + (matched - start) / 1_000
                 + " launchUs=" + (accepted - matched) / 1_000
                 + " totalUs=" + (accepted - start) / 1_000);
