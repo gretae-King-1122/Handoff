@@ -29,14 +29,14 @@ Handoff 是一个轻量 LSPosed 模块。点击 QQ / TIM 中支持的视频卡�
 | 状态与诊断 | 展示真实激活状态、框架信息与入口信号，支持脱敏导出 |
 | 日志与设置 | 绑定环境记录手动测试结果，提供总开关和六类入口开关 |
 
-**当前正式版：[v0.8.1](https://github.com/gretae-King-1122/Handoff/releases/tag/v0.8.1)。**
-219 项 JVM／Robolectric 测试、Debug／Release 构建及应用／UI 模块 Release lint 检查通过。
+**当前正式版：[v0.9.0](https://github.com/gretae-King-1122/Handoff/releases/tag/v0.9.0)。**
+242 项 JVM／Robolectric 测试、Debug／Release 构建、应用／UI 模块 Release lint 及 Hook／存储模块 Debug lint 检查通过（存在非阻断警告）。
 
-> **当前源码为 v0.9.0-dev（未发布）**：新增 TIM `com.tencent.tim` 支持，依据本地 TIM 4.1.0 / 4050 APK 核对浏览器与小程序入口，已有下述有限实机反馈，不代表全部场景验收通过。首页可切换 QQ / TIM，分别查看版本、作用域、激活和诊断；交接开关共用。启用方式及静态证据见 [TIM 支持说明](TIM_SUPPORT.md)。上方 v0.8.1 下载及历史验证数据不包含此改动。
+> **v0.9.0 新增 TIM `com.tencent.tim` 支持**：依据本地 TIM 4.1.0 / 4050 APK 核对浏览器与小程序入口，已有下述开发包的有限实机反馈，不代表全部场景验收通过。首页可切换 QQ / TIM，分别查看版本、作用域、激活和诊断；交接开关共用。并入经审计的 [PR #2](https://github.com/gretae-King-1122/Handoff/pull/2)，整理 Hook／诊断存储结构并增加异常、重入和会话回归测试；不据代码复杂度分数宣称性能提升。启用方式及静态证据见 [TIM 支持说明](TIM_SUPPORT.md)。
 
 ### TIM 实机反馈与已知限制（2026-11-02）
 
-当前开发包已安装到 PGZ110，以下为用户实机测试反馈；卡片按界面上的标识区分，不据此推断内部消息类型：
+2026-11-02 的 v0.9.0-dev / 15 开发包已安装到 PGZ110，以下为用户实机测试反馈；卡片按界面上的标识区分，不据此推断内部消息类型。v0.9.0 / 16 正式包未额外装机回归：
 
 | TIM 中的卡片标识 | 实机观察 |
 | --- | --- |
@@ -45,9 +45,9 @@ Handoff 是一个轻量 LSPosed 模块。点击 QQ / TIM 中支持的视频卡�
 
 上述提示在模块开启、关闭两种状态下都出现，尚未定位具体原因；当前模块**没有解决或绕过该提示**。请勿将此类卡片列为 TIM 已支持／已验证成功的入口；其他入口、设备及 TIM 版本仍需分别验证。
 
-> v0.8.1 仅发布 `main` 的 Compose 新界面与原有 B 站／抖音／快手交接功能，**不包含** `dynamic-link-handoff` 分支的动态适配及 Hook 性能修复。从 v0.7.1-dev 升级后，这些试验功能不再提供；原有平台开关和数据保留。
+> v0.9.0 发布 `main` 的 QQ／TIM 交接功能，**不包含** `dynamic-link-handoff` 分支的动态适配及 Hook 性能修复。从 v0.7.1-dev 升级后，这些试验功能不再提供；原有平台开关和数据保留。
 
-> 正式发布不等于所有设备、QQ 版本或热更新时机均已验证；本次正式版本号 APK 未额外装机回归，开发包的用户确认范围见下。
+> 正式发布不等于所有设备、QQ／TIM 版本或热更新时机均已验证；本次正式版本号 APK 未额外装机回归，开发包的用户确认范围见上文 TIM 反馈及下文历史记录。
 
 > **v0.6.0 新增抖音／快手链接交接。** 两者仍为默认关闭的可选试验功能，独立设置，不重构 B 站现有逻辑。
 > 用户已确认当前设备的抖音、快手作品长链及 `v.kuaishou.com` 短链可进入对应作品；短链后台解析失败时返回 QQ 浏览器。上述真机确认来自同源开发包，不代表所有设备均兼容。
@@ -155,24 +155,24 @@ ClassLoader 补挂正常交接入口；按 Loader 身份和反射 Method 的真�
 
 ## 获取 APK
 
-在 [v0.6.0 正式版](https://github.com/gretae-King-1122/Handoff/releases/tag/v0.6.0) 下载
-`Handoff-v0.6.0.apk`；`SHA256SUMS.txt` 用于校验文件。正式签名兼容此前正式签名包及 0.3.0-dev，
+在 [v0.9.0 正式版](https://github.com/gretae-King-1122/Handoff/releases/tag/v0.9.0) 下载
+`Handoff-v0.9.0.apk`；`SHA256SUMS.txt` 用于校验文件。正式签名兼容此前正式签名包及同签名 0.9.0-dev，
 不能覆盖 Debug 签名包。也可以自行[构建](#构建)。
 
 > 官方 APK 使用独立发布签名。旧 debug 包无法直接覆盖安装，需先在 LSPosed 停用并卸载旧 Handoff，
-> 再安装正式包、重新启用并勾选 QQ（不要卸载 QQ）。自行构建的签名也可能不同；密钥不要提交到仓库。
+> 再安装正式包、重新启用并勾选使用的 QQ／TIM（不要卸载聊天 App）。自行构建的签名也可能不同；密钥不要提交到仓库。
 
 ## 安装
 
 1. 安装自行构建或 Releases 中的 APK。
 2. 打开 LSPosed → 模块 → 启用 **Handoff**。
-3. 作用域勾选使用的 **QQ 和／或 TIM**，不需要勾选 B 站或系统框架（正式版 v0.8.1 不含 TIM，需使用当前源码构建）。
+3. 作用域勾选使用的 **QQ 和／或 TIM**，不需要勾选 B 站或系统框架（v0.9.0 正式包已包含 TIM；v0.8.1 原正式包不含 TIM）。
 4. 强制停止选中的 QQ／TIM，再重新打开；Handoff 首页切换到对应宿主检查状态。
 5. 如需抖音／快手交接，在 Handoff 设置中独立开启对应试验开关，再强停重开已启用的 QQ／TIM；两宿主共用开关，只开启抖音不会自动开启快手。
 6. 在 QQ／TIM 中点击支持的视频卡片／链接，按原有弹窗确认外跳。
 
 本版提供桌面入口和框架内的模块设置入口；启用模块仍需兼容的 LSPosed 框架。
-更新模块后也建议强停并重开 QQ；停用时同样操作。
+更新模块后也建议强停并重开启用的 QQ／TIM；停用时同样操作。
 
 ## 常见问题
 
@@ -289,7 +289,7 @@ Windows 中文工作目录下若测试 worker 报已编译测试类找不到，�
 
 ## License
 
-v0.8.1 组合应用：[GPL-3.0](LICENSES/GPL-3.0.txt)。原有 Handoff 文件保留 [Apache-2.0](LICENSE) © 2026 Handoff Project Contributors；历史 Apache-only 发行版许可不变。完整说明见 [LICENSING.md](LICENSING.md)。
+v0.9.0 组合应用：[GPL-3.0](LICENSES/GPL-3.0.txt)。原有 Handoff 文件保留 [Apache-2.0](LICENSE) © 2026 Handoff Project Contributors；历史 Apache-only 发行版许可不变。完整说明见 [LICENSING.md](LICENSING.md)。
 
 ## 免责
 

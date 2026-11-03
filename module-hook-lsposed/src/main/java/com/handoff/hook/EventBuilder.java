@@ -1,6 +1,7 @@
 package com.handoff.hook;
 
 import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Process;
 
@@ -138,6 +139,8 @@ public final class EventBuilder {
 
     /** 当前进程名；取不到时退回包名。 */
     public static String currentProcessName(String fallback) {
+        // Older Android versions already used the fallback after a linkage error; avoid the call.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return fallback;
         try {
             String name = Process.myProcessName();
             return name == null ? fallback : name;
